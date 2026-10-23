@@ -17,6 +17,7 @@ from .api import RemacApi
 from .const import (
     CONF_DEVICE_ID,
     CONF_SCAN_INTERVAL,
+    CONF_TOKEN_SOURCE,
     DEFAULT_SCAN_INTERVAL,
     CONF_HOUSE_ID,
     CONF_MOBILE,
@@ -68,6 +69,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: RemacConfigEntry) -> boo
         token=entry.data.get(CONF_TOKEN),
         mobile=entry.data.get(CONF_MOBILE),
         password=entry.data.get(CONF_PASSWORD),
+        token_source=entry.data.get(CONF_TOKEN_SOURCE),
     )
     coordinator = RemacCoordinator(
         hass,

@@ -3,13 +3,14 @@
     "step": {
       "user": {
         "title": "Connect REMAC 云邻 e家",
-        "description": "Sign in with the phone number and password you use in the 云邻 e家 app. The password is encrypted with the cloud RSA public key before it is sent. The poll interval controls unlock event latency (3–60 s, default 5 s).",
+        "description": "Option 1: phone + password (note: the account allows a single session, so this fights with the app). Option 2: set a token source URL and HA will only borrow the app's current token and never log in, leaving the app untouched.",
         "data": {
           "mobile": "Phone number",
           "password": "Password",
           "house_id": "House id",
           "agent_device_id": "Client fingerprint (deviceId)",
-          "scan_interval": "Poll interval (seconds)"
+          "scan_interval": "Poll interval (seconds)",
+          "token_source": "Token source URL (optional, disables login)"
         }
       },
       "reauth_confirm": {
@@ -26,7 +27,8 @@
       "invalid_auth": "Login failed: wrong phone number or password.",
       "cannot_connect": "Cannot reach the REMAC cloud.",
       "no_devices": "Signed in, but no device was found under that house id.",
-      "unknown": "Unexpected error, check the Home Assistant log."
+      "unknown": "Unexpected error, check the Home Assistant log.",
+      "need_credentials": "Enter a password, or provide a token source URL"
     },
     "abort": {
       "already_configured": "This account is already configured.",

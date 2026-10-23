@@ -4,6 +4,27 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/) and
 [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - 2026-10-24
+
+### Added
+
+- **Token source mode** (`token_source`): borrow the access token the official
+  app is currently using instead of logging in. Required for coexistence,
+  because the REMAC account allows only ONE active session — every login
+  invalidates all previous tokens (verified experimentally).
+- Configurable `scan_interval` (3–60 s, default 5 s) controlling unlock latency.
+
+### Changed
+
+- Default poll interval reduced from 15 s to 5 s.
+
+### Documented
+
+- Why the official app feels instant: it holds a private Alibaba EMAS push
+  connection on `emas-link-service.aliyuncs.com:9001`, which is not reusable by
+  third parties. The gateway exposes zero open TCP ports (full scan), and the
+  cloud offers no WebSocket/SSE endpoint.
+
 ## [1.0.0] - 2026-10-24
 
 First public release.

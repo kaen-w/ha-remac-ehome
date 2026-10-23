@@ -21,6 +21,9 @@ MIN_SCAN_INTERVAL: Final = 3
 MAX_SCAN_INTERVAL: Final = 60
 
 CONF_SCAN_INTERVAL: Final = "scan_interval"
+#: Optional URL that hands out the token the official app is currently using.
+#: When set the integration NEVER logs in, so it cannot kick the app offline.
+CONF_TOKEN_SOURCE: Final = "token_source"
 #: Status endpoint is refreshed every Nth log poll.
 STATUS_EVERY: Final = 4
 #: Lock credential list is refreshed every Nth log poll (~10 minutes).

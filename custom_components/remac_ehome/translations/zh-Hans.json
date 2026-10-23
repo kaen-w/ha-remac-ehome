@@ -3,13 +3,14 @@
     "step": {
       "user": {
         "title": "连接 REMAC 云邻 e家",
-        "description": "使用云邻e家 App 的手机号和密码登录。密码会用云端下发的 RSA 公钥加密后再传输。扫描间隔决定开锁事件延迟（3–60 秒，默认 5 秒）。",
+        "description": "方式一：填手机号+密码（注意：该账号是单会话，会和 App 互踢）。方式二：填「令牌来源地址」，HA 只借用 App 当前 token、永不登录，App 完全不受影响。",
         "data": {
           "mobile": "手机号",
           "password": "登录密码",
           "house_id": "房屋 ID",
           "agent_device_id": "客户端指纹 deviceId",
-          "scan_interval": "扫描间隔（秒）"
+          "scan_interval": "扫描间隔（秒）",
+          "token_source": "令牌来源地址（可选，填了就永不登录）"
         }
       },
       "reauth_confirm": {
@@ -26,7 +27,8 @@
       "invalid_auth": "登录失败：手机号或密码不正确。",
       "cannot_connect": "无法连接 REMAC 云端。",
       "no_devices": "登录成功，但该房屋下没有设备。",
-      "unknown": "发生未知错误，请查看 Home Assistant 日志。"
+      "unknown": "发生未知错误，请查看 Home Assistant 日志。",
+      "need_credentials": "请填写密码，或填写令牌来源地址"
     },
     "abort": {
       "already_configured": "该账号已配置。",

@@ -41,12 +41,14 @@ class RemacApi:
         token: str | None = None,
         mobile: str | None = None,
         password: str | None = None,
+        token_source: str | None = None,
     ) -> None:
         self._session = session
         self._device_id = device_id
         self._token = token
         self._mobile = mobile
         self._password = password
+        self._token_source = token_source
         self._public_key: str | None = None
         self._user_id: int | None = None
         self._last_login: float = 0.0
@@ -67,6 +69,37 @@ class RemacApi:
     def can_login(self) -> bool:
         """Whether stored credentials allow an automatic login."""
         return bool(self._mobile and self._password)
+
+    @property
+    def uses_token_source(self) -> bool:
+        """True when the token is borrowed from an external source.
+
+        This mode never calls the login endpoint, so it can never invalidate
+        the session the official app is using.
+        """
+        return bool(self._token_source)
+
+    async def _async_pull_token(self) -> bool:
+        """Fetch a fresh token from the configured source. Returns True on success."""
+        if not self._token_source:
+            return False
+        try:
+            async with self._session.get(
+                self._token_source, timeout=aiohttp.ClientTimeout(total=10)
+            ) as resp:
+                if resp.status != 200:
+                    return False
+                payload = await resp.json(content_type=None)
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as err:
+            _LOGGER.debug("token source unavailable: %s", err)
+            return False
+        token = (payload or {}).get("token")
+        if not token:
+            return False
+        if token != self._token:
+            _LOGGER.debug("borrowed a fresh access token from %s", self._token_source)
+            self._token = token
+        return True
 
     # ---------------------------------------------------------------- headers
     def _headers(self, *, authenticated: bool = True) -> dict[str, str]:
@@ -123,16 +156,30 @@ class RemacApi:
         """Request with automatic re-login on auth failure."""
         data = await self._request(path, payload)
         if data.get("errorCode") == ERR_AUTH:
-            _LOGGER.debug("access token rejected, attempting re-login")
-            await self.async_login()
-            data = await self._request(path, payload)
-            if data.get("errorCode") == ERR_AUTH:
-                raise RemacAuthError("access token rejected after re-login")
+            if self.uses_token_source:
+                _LOGGER.debug("access token rejected, pulling a new one from the source")
+                if await self._async_pull_token():
+                    data = await self._request(path, payload)
+                if data.get("errorCode") == ERR_AUTH:
+                    raise RemacAuthError(
+                        "the borrowed token was rejected and the source had no newer one "
+                        "(open the 云邻 e家 app once so it refreshes its session)"
+                    )
+            else:
+                _LOGGER.debug("access token rejected, attempting re-login")
+                await self.async_login()
+                data = await self._request(path, payload)
+                if data.get("errorCode") == ERR_AUTH:
+                    raise RemacAuthError("access token rejected after re-login")
         return data
 
     # ------------------------------------------------------------------ login
     async def async_login(self) -> str:
         """Log in with the stored credentials and return a fresh token."""
+        if self.uses_token_source:
+            raise RemacAuthError(
+                "this entry borrows its token from a source and must never log in"
+            )
         if not self.can_login:
             raise RemacAuthError(
                 "no credentials stored; add the account phone number and password"
@@ -192,6 +239,8 @@ class RemacApi:
     # -------------------------------------------------------------- endpoints
     async def async_validate(self, house_id: str) -> list[dict[str, Any]]:
         """Validate credentials by fetching the device list."""
+        if not self._token and self.uses_token_source:
+            await self._async_pull_token()
         if not self._token:
             await self.async_login()
         return await self.async_get_devices(house_id)

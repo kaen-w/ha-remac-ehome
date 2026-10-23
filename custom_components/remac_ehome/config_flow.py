@@ -23,6 +23,7 @@ from .const import (
     CONF_PASSWORD,
     CONF_SCAN_INTERVAL,
     CONF_TOKEN,
+    CONF_TOKEN_SOURCE,
     DEFAULT_DEVICE_ID,
     DEFAULT_HOUSE_ID,
     DEFAULT_SCAN_INTERVAL,
@@ -43,12 +44,13 @@ def _interval_selector() -> vol.All:
 SETUP_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_MOBILE): str,
-        vol.Required(CONF_PASSWORD): str,
+        vol.Optional(CONF_PASSWORD): str,
         vol.Optional(CONF_HOUSE_ID, default=DEFAULT_HOUSE_ID): str,
         vol.Optional(CONF_DEVICE_ID, default=DEFAULT_DEVICE_ID): str,
         vol.Optional(
             CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL
         ): _interval_selector(),
+        vol.Optional(CONF_TOKEN_SOURCE): str,
     }
 )
 
@@ -78,11 +80,17 @@ async def validate_input(
     password: str | None,
     house_id: str,
     device_id: str,
+    token_source: str | None = None,
 ) -> list[dict[str, Any]]:
     """Log in (when needed) and return the device list."""
     session = async_create_clientsession(hass)
     api = RemacApi(
-        session, device_id=device_id, token=token, mobile=mobile, password=password
+        session,
+        device_id=device_id,
+        token=token,
+        mobile=mobile,
+        password=password,
+        token_source=token_source,
     )
     return await api.async_validate(house_id)
 
@@ -105,9 +113,17 @@ class RemacConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             mobile = user_input[CONF_MOBILE].strip()
-            password = user_input[CONF_PASSWORD]
+            password = user_input.get(CONF_PASSWORD) or ""
             house_id = user_input.get(CONF_HOUSE_ID, DEFAULT_HOUSE_ID).strip()
             device_id = user_input.get(CONF_DEVICE_ID, DEFAULT_DEVICE_ID).strip()
+            token_source = (user_input.get(CONF_TOKEN_SOURCE) or "").strip() or None
+
+            if not token_source and not password:
+                return self.async_show_form(
+                    step_id="user",
+                    data_schema=SETUP_SCHEMA,
+                    errors={"base": "need_credentials"},
+                )
 
             await self.async_set_unique_id(f"remac_{mobile}")
             self._abort_if_unique_id_configured()
@@ -120,6 +136,7 @@ class RemacConfigFlow(ConfigFlow, domain=DOMAIN):
                     password=password,
                     house_id=house_id,
                     device_id=device_id,
+                    token_source=token_source,
                 )
             except RemacAuthError:
                 errors["base"] = "invalid_auth"
@@ -139,6 +156,7 @@ class RemacConfigFlow(ConfigFlow, domain=DOMAIN):
                             CONF_PASSWORD: password,
                             CONF_HOUSE_ID: house_id,
                             CONF_DEVICE_ID: device_id,
+                            CONF_TOKEN_SOURCE: token_source,
                         },
                         options={
                             CONF_SCAN_INTERVAL: user_input.get(
