@@ -1,0 +1,21 @@
+generate_temp_password:
+  name: Generate temporary passcode
+  description: Create a one-time door passcode on the REMAC / Midea door lock.
+  fields:
+    username:
+      name: Holder name
+      description: Who the passcode is for, e.g. courier or cleaner.
+      required: true
+      example: Courier
+      selector:
+        text:
+    expire:
+      name: Validity (seconds)
+      description: How long the passcode stays valid. The cloud accepts 60-1800 seconds.
+      required: false
+      default: 1800
+      selector:
+        number:
+          min: 60
+          max: 1800
+          unit_of_measurement: seconds

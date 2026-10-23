@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Home Assistant
+.storage/
+*.log
+home-assistant*.db
+configuration.yaml
+
+# Tooling
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+coverage.xml
+.coverage
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store

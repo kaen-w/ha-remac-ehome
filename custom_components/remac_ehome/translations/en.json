@@ -1,0 +1,101 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect REMAC 云邻 e家",
+        "description": "Sign in with the phone number and password you use in the 云邻 e家 app. The password is encrypted with the cloud RSA public key before it is sent.",
+        "data": {
+          "mobile": "Phone number",
+          "password": "Password",
+          "house_id": "House id",
+          "agent_device_id": "Client fingerprint (deviceId)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate",
+        "description": "The session for {mobile} expired. Enter the password again, or paste a fresh access token.",
+        "data": {
+          "token": "Access token (optional)",
+          "mobile": "Phone number (optional)",
+          "password": "Password (optional)"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Login failed: wrong phone number or password.",
+      "cannot_connect": "Cannot reach the REMAC cloud.",
+      "no_devices": "Signed in, but no device was found under that house id.",
+      "unknown": "Unexpected error, check the Home Assistant log."
+    },
+    "abort": {
+      "already_configured": "This account is already configured.",
+      "reauth_successful": "Re-authentication successful.",
+      "reauth_failed": "Re-authentication failed."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Update credentials",
+        "description": "Update the phone number or password, or paste a short-lived access token.",
+        "data": {
+          "token": "Access token (optional)",
+          "mobile": "Phone number (optional)",
+          "password": "Password (optional)"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Verification failed.",
+      "cannot_connect": "Cannot reach the REMAC cloud."
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "online": { "name": "Online" },
+      "low_battery": { "name": "Low battery" }
+    },
+    "sensor": {
+      "battery": { "name": "Battery" },
+      "door_state": {
+        "name": "Door state",
+        "state": { "open": "Open", "closed": "Closed" }
+      },
+      "last_activity": { "name": "Last activity" },
+      "temp_passcode": { "name": "Temporary passcode" }
+    },
+    "button": {
+      "generate_temp_passcode": { "name": "Generate temporary passcode" }
+    },
+    "number": {
+      "temp_duration": { "name": "Temporary passcode duration" }
+    },
+    "text": {
+      "temp_user": { "name": "Temporary passcode holder" }
+    }
+  },
+  "exceptions": {
+    "remote_lock_unsupported": {
+      "message": "This door lock does not support remote locking. Generate a temporary passcode instead."
+    },
+    "remote_unlock_unsupported": {
+      "message": "This door lock does not support remote unlocking. Generate a temporary passcode instead."
+    }
+  },
+  "services": {
+    "generate_temp_password": {
+      "name": "Generate temporary passcode",
+      "description": "Create a one-time door passcode.",
+      "fields": {
+        "username": {
+          "name": "Holder name",
+          "description": "Who the passcode is for."
+        },
+        "expire": {
+          "name": "Validity (seconds)",
+          "description": "How long the passcode stays valid."
+        }
+      }
+    }
+  }
+}

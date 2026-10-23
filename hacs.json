@@ -1,0 +1,6 @@
+{
+  "name": "REMAC 云邻 e家",
+  "render_readme": true,
+  "homeassistant": "2025.1.0",
+  "country": ["CN"]
+}
