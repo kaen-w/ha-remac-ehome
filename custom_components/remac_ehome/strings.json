@@ -3,12 +3,13 @@
     "step": {
       "user": {
         "title": "Connect REMAC 云邻 e家",
-        "description": "Sign in with the phone number and password you use in the 云邻 e家 app. The password is encrypted with the cloud RSA public key before it is sent.",
+        "description": "Sign in with the phone number and password you use in the 云邻 e家 app. The password is encrypted with the cloud RSA public key before it is sent. The poll interval controls unlock event latency (3–60 s, default 5 s).",
         "data": {
           "mobile": "Phone number",
           "password": "Password",
           "house_id": "House id",
-          "agent_device_id": "Client fingerprint (deviceId)"
+          "agent_device_id": "Client fingerprint (deviceId)",
+          "scan_interval": "Poll interval (seconds)"
         }
       },
       "reauth_confirm": {
@@ -37,11 +38,12 @@
     "step": {
       "init": {
         "title": "Update credentials",
-        "description": "Update the phone number or password, or paste a short-lived access token.",
+        "description": "Update the phone number or password, or paste a short-lived access token. The poll interval controls unlock event latency.",
         "data": {
           "token": "Access token (optional)",
           "mobile": "Phone number (optional)",
-          "password": "Password (optional)"
+          "password": "Password (optional)",
+          "scan_interval": "Poll interval (seconds)"
         }
       }
     },
@@ -52,26 +54,45 @@
   },
   "entity": {
     "binary_sensor": {
-      "online": { "name": "Online" },
-      "low_battery": { "name": "Low battery" }
+      "online": {
+        "name": "Online"
+      },
+      "low_battery": {
+        "name": "Low battery"
+      }
     },
     "sensor": {
-      "battery": { "name": "Battery" },
+      "battery": {
+        "name": "Battery"
+      },
       "door_state": {
         "name": "Door state",
-        "state": { "open": "Open", "closed": "Closed" }
+        "state": {
+          "open": "Open",
+          "closed": "Closed"
+        }
       },
-      "last_activity": { "name": "Last activity" },
-      "temp_passcode": { "name": "Temporary passcode" }
+      "last_activity": {
+        "name": "Last activity"
+      },
+      "temp_passcode": {
+        "name": "Temporary passcode"
+      }
     },
     "button": {
-      "generate_temp_passcode": { "name": "Generate temporary passcode" }
+      "generate_temp_passcode": {
+        "name": "Generate temporary passcode"
+      }
     },
     "number": {
-      "temp_duration": { "name": "Temporary passcode duration" }
+      "temp_duration": {
+        "name": "Temporary passcode duration"
+      }
     },
     "text": {
-      "temp_user": { "name": "Temporary passcode holder" }
+      "temp_user": {
+        "name": "Temporary passcode holder"
+      }
     }
   },
   "exceptions": {

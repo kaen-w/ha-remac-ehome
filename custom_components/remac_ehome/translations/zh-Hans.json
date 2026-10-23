@@ -3,12 +3,13 @@
     "step": {
       "user": {
         "title": "连接 REMAC 云邻 e家",
-        "description": "使用云邻e家 App 的手机号和密码登录。密码会用云端下发的 RSA 公钥加密后再传输。",
+        "description": "使用云邻e家 App 的手机号和密码登录。密码会用云端下发的 RSA 公钥加密后再传输。扫描间隔决定开锁事件延迟（3–60 秒，默认 5 秒）。",
         "data": {
           "mobile": "手机号",
           "password": "登录密码",
           "house_id": "房屋 ID",
-          "agent_device_id": "客户端指纹 deviceId"
+          "agent_device_id": "客户端指纹 deviceId",
+          "scan_interval": "扫描间隔（秒）"
         }
       },
       "reauth_confirm": {
@@ -37,11 +38,12 @@
     "step": {
       "init": {
         "title": "更新凭据",
-        "description": "可更新手机号/密码，或粘贴一个短期有效的 accessToken。",
+        "description": "可更新手机号/密码，或粘贴一个短期有效的 accessToken。扫描间隔决定开锁事件延迟。",
         "data": {
           "token": "accessToken（可选）",
           "mobile": "手机号（可选）",
-          "password": "密码（可选）"
+          "password": "密码（可选）",
+          "scan_interval": "扫描间隔（秒）"
         }
       }
     },

@@ -13,8 +13,14 @@ USER_AGENT: Final = (
     f"SmartLifeCommunity/{APP_VERSION} (iPhone; iOS 18.7.8; Scale/3.00)"
 )
 
-#: Activity-log poll cadence in seconds. This drives unlock/door events.
-LOG_INTERVAL: Final = 15
+#: Default activity-log poll cadence in seconds. This drives unlock/door events.
+#: The cloud has no push channel available to third parties (the official app
+#: uses an Alibaba EMAS long connection on :9001), so latency == this interval.
+DEFAULT_SCAN_INTERVAL: Final = 5
+MIN_SCAN_INTERVAL: Final = 3
+MAX_SCAN_INTERVAL: Final = 60
+
+CONF_SCAN_INTERVAL: Final = "scan_interval"
 #: Status endpoint is refreshed every Nth log poll.
 STATUS_EVERY: Final = 4
 #: Lock credential list is refreshed every Nth log poll (~10 minutes).

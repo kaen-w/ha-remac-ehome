@@ -13,7 +13,7 @@ from .api import RemacApi
 from .const import (
     DOMAIN,
     EVENT_DOOR,
-    LOG_INTERVAL,
+    DEFAULT_SCAN_INTERVAL,
     STATUS_EVERY,
     USERS_EVERY,
 )
@@ -51,13 +51,15 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         house_id: str,
         name: str,
         entry_id: str = "",
+        scan_interval: int = DEFAULT_SCAN_INTERVAL,
     ) -> None:
         super().__init__(
             hass,
             _LOGGER,
             name=f"{DOMAIN} {name}",
-            update_interval=timedelta(seconds=LOG_INTERVAL),
+            update_interval=timedelta(seconds=scan_interval),
         )
+        self.scan_interval = scan_interval
         self.api = api
         self.house_id = house_id
         self.entry_id = entry_id

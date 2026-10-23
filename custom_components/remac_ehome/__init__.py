@@ -16,6 +16,8 @@ from homeassistant.helpers.typing import ConfigType
 from .api import RemacApi
 from .const import (
     CONF_DEVICE_ID,
+    CONF_SCAN_INTERVAL,
+    DEFAULT_SCAN_INTERVAL,
     CONF_HOUSE_ID,
     CONF_MOBILE,
     CONF_PASSWORD,
@@ -73,6 +75,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: RemacConfigEntry) -> boo
         house_id=entry.data.get(CONF_HOUSE_ID, DEFAULT_HOUSE_ID),
         name=entry.title,
         entry_id=entry.entry_id,
+        scan_interval=int(entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)),
     )
     await coordinator.async_config_entry_first_refresh()
 

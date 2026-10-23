@@ -21,14 +21,24 @@ from .const import (
     CONF_HOUSE_ID,
     CONF_MOBILE,
     CONF_PASSWORD,
+    CONF_SCAN_INTERVAL,
     CONF_TOKEN,
     DEFAULT_DEVICE_ID,
     DEFAULT_HOUSE_ID,
+    DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    MAX_SCAN_INTERVAL,
+    MIN_SCAN_INTERVAL,
 )
 from .exceptions import RemacAuthError, RemacError
 
 _LOGGER = logging.getLogger(__name__)
+
+def _interval_selector() -> vol.All:
+    return vol.All(
+        vol.Coerce(int), vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL)
+    )
+
 
 SETUP_SCHEMA = vol.Schema(
     {
@@ -36,6 +46,9 @@ SETUP_SCHEMA = vol.Schema(
         vol.Required(CONF_PASSWORD): str,
         vol.Optional(CONF_HOUSE_ID, default=DEFAULT_HOUSE_ID): str,
         vol.Optional(CONF_DEVICE_ID, default=DEFAULT_DEVICE_ID): str,
+        vol.Optional(
+            CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL
+        ): _interval_selector(),
     }
 )
 
@@ -44,6 +57,15 @@ TOKEN_SCHEMA = vol.Schema(
         vol.Optional(CONF_TOKEN): str,
         vol.Optional(CONF_MOBILE): str,
         vol.Optional(CONF_PASSWORD): str,
+    }
+)
+
+OPTIONS_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_MOBILE): str,
+        vol.Optional(CONF_PASSWORD): str,
+        vol.Optional(CONF_TOKEN): str,
+        vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): _interval_selector(),
     }
 )
 
@@ -117,6 +139,11 @@ class RemacConfigFlow(ConfigFlow, domain=DOMAIN):
                             CONF_PASSWORD: password,
                             CONF_HOUSE_ID: house_id,
                             CONF_DEVICE_ID: device_id,
+                        },
+                        options={
+                            CONF_SCAN_INTERVAL: user_input.get(
+                                CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
+                            )
                         },
                     )
 
@@ -207,10 +234,17 @@ class RemacOptionsFlow(OptionsFlow):
                         CONF_MOBILE: mobile,
                         CONF_PASSWORD: password,
                     },
+                    options={
+                        **entry.options,
+                        CONF_SCAN_INTERVAL: user_input.get(
+                            CONF_SCAN_INTERVAL,
+                            entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
+                        ),
+                    },
                 )
                 await self.hass.config_entries.async_reload(entry.entry_id)
                 return self.async_create_entry(title="", data={})
 
         return self.async_show_form(
-            step_id="init", data_schema=TOKEN_SCHEMA, errors=errors
+            step_id="init", data_schema=OPTIONS_SCHEMA, errors=errors
         )
