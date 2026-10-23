@@ -21,13 +21,25 @@ from .const import (
     ERR_AUTH,
     USER_AGENT,
 )
-from .exceptions import RemacApiError, RemacAuthError, RemacConnectionError
+from .exceptions import (
+    RemacApiError,
+    RemacAuthError,
+    RemacConnectionError,
+    RemacCredentialsError,
+)
 from .rsa import encrypt as rsa_encrypt
 
 _LOGGER = logging.getLogger(__name__)
 
 REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=25)
-LOGIN_COOLDOWN = 20.0
+#: The REMAC account is single-session: whoever logs in last wins. The official
+#: app silently re-logs in, so we must not fight it every few seconds. Back off
+#: exponentially between login attempts to keep the churn gentle.
+#: Minimum seconds between two login attempts, even successful ones. While the
+#: app is open the two clients trade kicks; this cap keeps it to ~1 login/minute
+#: instead of a request storm. When the app is closed HA simply owns the session.
+LOGIN_BACKOFF_START = 60.0
+LOGIN_BACKOFF_MAX = 600.0
 
 
 class RemacApi:
@@ -53,6 +65,9 @@ class RemacApi:
         self._user_id: int | None = None
         self._last_login: float = 0.0
         self._login_lock = asyncio.Lock()
+        self._next_login_at: float = 0.0
+        self._login_backoff: float = LOGIN_BACKOFF_START
+        self._token_born: float = 0.0
 
     # ------------------------------------------------------------------ props
     @property
@@ -156,6 +171,14 @@ class RemacApi:
         """Request with automatic re-login on auth failure."""
         data = await self._request(path, payload)
         if data.get("errorCode") == ERR_AUTH:
+            # If the token survived a long time before dying, the fight is over
+            # (the app is closed again) so forget the accumulated backoff.
+            if self._token_born and (time.monotonic() - self._token_born) > LOGIN_BACKOFF_MAX:
+                if self._login_backoff != LOGIN_BACKOFF_START:
+                    _LOGGER.debug(
+                        "session stayed alive for a long time, resetting login backoff"
+                    )
+                self._login_backoff = LOGIN_BACKOFF_START
             if self.uses_token_source:
                 _LOGGER.debug("access token rejected, pulling a new one from the source")
                 if await self._async_pull_token():
@@ -167,7 +190,22 @@ class RemacApi:
                     )
             else:
                 _LOGGER.debug("access token rejected, attempting re-login")
-                await self.async_login()
+                try:
+                    await self.async_login()
+                except RemacCredentialsError:
+                    raise
+                except RemacAuthError as err:
+                    # Back off so we stop kicking the app every few seconds.
+                    self._login_backoff = min(
+                        LOGIN_BACKOFF_MAX, self._login_backoff * 2
+                    )
+                    self._next_login_at = time.monotonic() + self._login_backoff
+                    _LOGGER.warning(
+                        "cannot re-login yet (%s); next attempt in %ds",
+                        err,
+                        int(self._login_backoff),
+                    )
+                    raise
                 data = await self._request(path, payload)
                 if data.get("errorCode") == ERR_AUTH:
                     raise RemacAuthError("access token rejected after re-login")
@@ -185,9 +223,18 @@ class RemacApi:
                 "no credentials stored; add the account phone number and password"
             )
         async with self._login_lock:
-            if self._last_login and (time.monotonic() - self._last_login) < LOGIN_COOLDOWN:
-                if self._token:
-                    return self._token
+            now = time.monotonic()
+            if now < self._next_login_at:
+                raise RemacAuthError(
+                    "login deferred to avoid fighting the app over the single "
+                    f"session (retrying in {int(self._next_login_at - now)}s)"
+                )
+            # Being kicked soon after logging in means the app is open and we
+            # lost the race; slow down instead of escalating.
+            if self._last_login and (now - self._last_login) < self._login_backoff * 2:
+                self._login_backoff = min(
+                    LOGIN_BACKOFF_MAX, self._login_backoff * 1.5
+                )
 
             public_key = await self._async_public_key()
             payload = {
@@ -207,9 +254,13 @@ class RemacApi:
             )
             code = data.get("errorCode")
             if code != 0:
-                raise RemacAuthError(
-                    f"login rejected: {code} {data.get('msg')}"
-                )
+                # 3153 / 4003 mean "bad credentials" -> user must fix them.
+                # 3000 and friends are transient; treat as retryable.
+                if code in (3153, 4003):
+                    raise RemacCredentialsError(
+                        f"login rejected: {code} {data.get('msg')}"
+                    )
+                raise RemacAuthError(f"login rejected: {code} {data.get('msg')}")
             info = data.get("data") or {}
             token = info.get("accessToken")
             if not token:
@@ -217,6 +268,11 @@ class RemacApi:
             self._token = token
             self._user_id = info.get("userId")
             self._last_login = time.monotonic()
+            self._token_born = self._last_login
+            # Even on success, refuse to log in again for a while. Without this
+            # the app would kick us every few seconds and we would kick back,
+            # hammering the login endpoint.
+            self._next_login_at = self._last_login + self._login_backoff
             _LOGGER.info(
                 "logged in as %s (token ttl advertised %ss)",
                 info.get("nickname") or self._mobile,

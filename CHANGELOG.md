@@ -18,6 +18,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and
 
 - Default poll interval reduced from 15 s to 5 s.
 
+### Fixed
+
+- Login storm: the account is single-session, so HA and the app trade kicks.
+  Login attempts are now rate limited (60 s minimum, growing to 10 min while the
+  fight lasts, reset once a session survives 10 minutes) instead of retrying on
+  every poll.
+- Only a rejected phone/password triggers Home Assistant's re-auth dialog; a
+  rejected token is treated as retryable so the UI is not spammed.
+
 ### Documented
 
 - Why the official app feels instant: it holds a private Alibaba EMAS push

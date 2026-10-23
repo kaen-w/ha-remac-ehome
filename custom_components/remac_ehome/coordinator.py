@@ -18,7 +18,7 @@ from .const import (
     USERS_EVERY,
 )
 from .decoder import decode_record
-from .exceptions import RemacAuthError, RemacConnectionError
+from .exceptions import RemacAuthError, RemacConnectionError, RemacCredentialsError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -115,8 +115,13 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._logs = await self.api.async_get_logs(self.dev_code, page_size=20)
             self._tick += 1
             self._emit_new_records(self._logs)
-        except RemacAuthError as err:
+        except RemacCredentialsError as err:
+            # Wrong phone/password -> ask the user, HA shows the reauth dialog.
             raise ConfigEntryAuthFailed(str(err)) from err
+        except RemacAuthError as err:
+            # Token rejected and we are waiting out the backoff before logging in
+            # again. Not a user problem: keep retrying quietly.
+            raise UpdateFailed(str(err)) from err
         except RemacConnectionError as err:
             raise UpdateFailed(str(err)) from err
         except Exception as err:  # noqa: BLE001
