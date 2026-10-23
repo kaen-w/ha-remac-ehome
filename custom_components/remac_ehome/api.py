@@ -365,29 +365,15 @@ class RemacApi:
     async def async_get_lock_users(self, dev_code: str) -> list[dict[str, Any]]:
         """Return every credential stored on the lock.
 
-        The cloud filters by ``userType`` and an untyped request only exposes a
-        single bucket, so all known types are swept and merged.
+        A single untyped call returns all buckets — passing ``userType`` makes no
+        difference (verified for values 1-5), so no sweep is needed.
         """
-        seen: dict[tuple[Any, Any], dict[str, Any]] = {}
-        for user_type in (None, 1, 2, 3, 4):
-            body: dict[str, Any] = {"devCode": dev_code, "requestOrigin": "plugin"}
-            if user_type is not None:
-                body["userType"] = user_type
-            try:
-                data = await self._request_authed(
-                    "/sl/home/device/subdevice/lock/user/list", body
-                )
-            except RemacAuthError:
-                raise
-            except (RemacApiError, RemacConnectionError) as err:
-                _LOGGER.debug("lock user sweep (userType=%s) failed: %s", user_type, err)
-                continue
-            rows = data.get("data")
-            if not isinstance(rows, list):
-                continue
-            for row in rows:
-                seen.setdefault((row.get("userNo"), row.get("userType")), row)
-        return list(seen.values())
+        data = await self._request_authed(
+            "/sl/home/device/subdevice/lock/user/list",
+            {"devCode": dev_code, "requestOrigin": "plugin"},
+        )
+        rows = data.get("data")
+        return rows if isinstance(rows, list) else []
 
     async def async_generate_temp_password(
         self,

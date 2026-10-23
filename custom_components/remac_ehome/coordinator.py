@@ -85,15 +85,41 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return (self.lock_dev.get("master") or {}).get("devCode", "")
 
     @property
-    def user_map(self) -> dict[str, str]:
-        """``userNo`` → human readable credential label."""
-        return {
-            str(user.get("userNo")): str(
-                user.get("userName") or user.get("typeName") or user.get("userNo")
+    def user_map(self) -> dict[str, dict[str, str]]:
+        """``userNo`` → human readable credential label.
+
+        The label the user typed in the app lives in ``userRole`` (user list
+        endpoint) / ``user_role`` (device ``register_users``); ``typeName`` is
+        just the credential kind such as "普通指纹".
+        """
+        mapping: dict[str, dict[str, str]] = {}
+        sources: list[dict[str, Any]] = list(self.lock_users)
+        extra = (self.lock_dev.get("extraAttr") or {}).get("register_users") or []
+        for row in extra:
+            sources.append(
+                {
+                    "userNo": row.get("user_no"),
+                    "userRole": row.get("user_role"),
+                    "typeName": row.get("type_name"),
+                }
             )
-            for user in self.lock_users
-            if user.get("userNo") is not None
-        }
+        for user in sources:
+            user_no = user.get("userNo")
+            if user_no is None:
+                continue
+            name = (
+                user.get("userRole")
+                or user.get("user_role")
+                or user.get("userName")
+                or user.get("typeName")
+                or user.get("type_name")
+                or str(user_no)
+            )
+            type_name = user.get("typeName") or user.get("type_name") or ""
+            mapping.setdefault(
+                str(user_no), {"name": str(name), "type": str(type_name)}
+            )
+        return mapping
 
     # ----------------------------------------------------------------- update
     async def _async_update_data(self) -> dict[str, Any]:

@@ -9,13 +9,23 @@ from __future__ import annotations
 import json
 from typing import Any
 
-#: ``openRecord`` values confirmed on a physical ``midea.doorlock.031``.
-#: Extend this table when new samples are captured.
+#: ``openRecord`` encoding, confirmed on a physical ``midea.doorlock.031``:
+#:
+#:   bit ``9 + N``  -> credential number ``N``
+#:
+#: ``user 0 -> bit 9 -> 0x0200 (512)``, which matches the device's own
+#: ``RegisterLockUser: [512]`` list, so the rule is solid.
+#:
+#: Observed samples: ``0x0200`` = fingerprint of user 0,
+#: ``0x2100`` = temporary passcode unlock. The temporary passcode appears to
+#: occupy an ephemeral slot (bit 13 = credential 4) that has no entry in the
+#: credential list, so it is matched by exact value below.
 RECORD_METHODS: dict[int, str] = {
     0x2100: "临时密码",
-    0x0200: "指纹",
     0x1200: "密码",
 }
+#: Lowest bit used for credential numbers.
+USER_BIT_BASE = 9
 
 #: Which payload field a record carries, and how to label it.
 FIELD_TYPES: dict[str, tuple[str, str]] = {
@@ -30,8 +40,29 @@ DOOR_OPEN = 0
 DOOR_CLOSED = 1
 
 
+#: Map a credential's ``typeName`` to a short, automatable method name.
+TYPE_ALIASES: tuple[tuple[str, str], ...] = (
+    ("指纹", "指纹"),
+    ("密码", "密码"),
+    ("感应卡", "感应卡"),
+    ("卡片", "感应卡"),
+    ("人脸", "人脸"),
+    ("钥匙", "钥匙"),
+)
+
+
+def normalise_method(type_name: str | None, default: str = "未知") -> str:
+    """Turn a verbose ``typeName`` such as "普通指纹" into "指纹"."""
+    if not type_name:
+        return default
+    for needle, label in TYPE_ALIASES:
+        if needle in type_name:
+            return label
+    return type_name
+
+
 def decode_record(
-    raw: Any, user_map: dict[str, str] | None = None
+    raw: Any, user_map: dict[str, Any] | None = None
 ) -> dict[str, Any]:
     """Turn one record payload into a structured event dictionary."""
     payload = _as_mapping(raw)
@@ -50,9 +81,17 @@ def decode_record(
     if field == "openRecord" and isinstance(value, int):
         event["record_hex"] = f"0x{value:04X}"
         event["bits"] = [bit for bit in range(24) if (value >> bit) & 1]
-        event["method"] = RECORD_METHODS.get(value, "未知")
-        event["record_label"] = f"{event['method']}({event['record_hex']})"
-        _attach_user(event, value, user_map)
+        # Derive the method from the credential that owns the matching bit —
+        # this scales to any number of users. Only when no *registered* user
+        # matches do we fall back to the exact-value table, and otherwise stay
+        # honest with "未知" instead of guessing.
+        method = _attach_user(event, value, user_map)
+        if method is None:
+            method = RECORD_METHODS.get(value)
+            if method == "临时密码":
+                event["temporary"] = True
+        event["method"] = method or "未知"
+        event["record_label"] = f"{method}({event['record_hex']})"
 
     if field == "doorState":
         event["door_open"] = value == DOOR_OPEN
@@ -77,17 +116,30 @@ def _as_mapping(raw: Any) -> dict[str, Any]:
 
 
 def _attach_user(
-    event: dict[str, Any], value: int, user_map: dict[str, str] | None
-) -> None:
-    """Best-effort mapping from an ``openRecord`` value to a credential."""
+    event: dict[str, Any], value: int, user_map: dict[str, Any] | None
+) -> str | None:
+    """Match the credential bit and return the unlock method for it.
+
+    ``user_map`` maps ``userNo`` to ``{"name": ..., "type": ...}``.
+    """
     if not user_map:
-        return
-    for user_no, name in user_map.items():
+        return None
+    for user_no, info in user_map.items():
         try:
-            bit = 9 + int(user_no)
+            bit = USER_BIT_BASE + int(user_no)
         except (TypeError, ValueError):
             continue
-        if value & (1 << bit):
-            event["user_no"] = user_no
+        if not value & (1 << bit):
+            continue
+        if isinstance(info, dict):
+            name = info.get("name")
+            type_name = info.get("type")
+        else:  # tolerate a plain string map
+            name, type_name = info, None
+        event["user_no"] = user_no
+        if name:
             event["user_name"] = name
-            return
+        if type_name:
+            event["user_type"] = type_name
+        return normalise_method(type_name)
+    return None
