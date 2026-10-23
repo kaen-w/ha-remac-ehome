@@ -107,7 +107,7 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     self.lock_users = await self.api.async_get_lock_users(self.dev_code)
                 except RemacAuthError:
                     raise
-                except (RemacConnectionError, Exception) as err:  # noqa: BLE001
+                except Exception as err:  # noqa: BLE001 - never break polling
                     _LOGGER.debug("lock user refresh failed: %s", err)
 
             self._logs = await self.api.async_get_logs(self.dev_code, page_size=20)

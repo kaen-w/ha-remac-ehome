@@ -10,7 +10,7 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, EVENT_DOOR, SIGNAL_TEMP_PASSCODE
+from .const import DOMAIN, SIGNAL_TEMP_PASSCODE
 from .exceptions import RemacError
 
 _LOGGER = logging.getLogger(__name__)
