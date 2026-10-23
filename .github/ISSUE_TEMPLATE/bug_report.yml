@@ -1,0 +1,58 @@
+name: Bug report
+description: Something is not working as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. **Please redact your phone number, password and access token.**
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      placeholder: "2026.8.3"
+    validations:
+      required: true
+  - type: input
+    id: integration_version
+    attributes:
+      label: Integration version
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: lock_model
+    attributes:
+      label: Door lock model
+      description: Found in the device page, e.g. `midea.doorlock.031`
+    validations:
+      required: false
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happened
+      description: What did you do, what did you expect, what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Debug log
+      description: |
+        Enable with:
+        ```yaml
+        logger:
+          logs:
+            custom_components.remac_ehome: debug
+        ```
+      render: shell
+    validations:
+      required: false
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: Settings → Devices & Services → REMAC → ⋮ → Download diagnostics (already redacted)
+      render: json
+    validations:
+      required: false

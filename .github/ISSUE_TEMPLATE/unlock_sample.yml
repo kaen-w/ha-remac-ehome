@@ -1,0 +1,48 @@
+name: Unlock sample (help decode openRecord)
+description: Contribute a door lock activity sample so we can decode unlock methods
+labels: ["protocol", "help wanted"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The `openRecord` bitfield is only partly decoded. A few samples from a real
+        lock would let us finish it, which unlocks per-credential automations
+        ("fingerprint of Alice → play Alice's greeting").
+
+        Grab the data from `sensor.<your_lock>_last_activity` → attribute `recent`.
+  - type: input
+    id: lock_model
+    attributes:
+      label: Lock model
+      placeholder: "midea.doorlock.031"
+    validations:
+      required: true
+  - type: dropdown
+    id: method
+    attributes:
+      label: Which unlock methods do these samples cover?
+      multiple: true
+      options:
+        - Fingerprint
+        - Passcode
+        - Temporary passcode
+        - RFID card
+        - App remote
+    validations:
+      required: true
+  - type: textarea
+    id: samples
+    attributes:
+      label: Samples
+      description: Paste the `recent` attribute. Timestamps alone are harmless.
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: credentials
+    attributes:
+      label: Credential list (optional)
+      description: Paste the `credentials` attribute of the same sensor, so we can map userNo to people.
+      render: json
+    validations:
+      required: false
