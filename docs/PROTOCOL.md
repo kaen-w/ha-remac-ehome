@@ -431,6 +431,30 @@ iPhone ──► 路由器 DNAT ──► Mac:8443               ──► 真�
 
 ---
 
+
+### 6.1 抓包环境的清理
+
+抓完就不需要了，按顺序拆掉（**不影响集成本身**）：
+
+```bash
+# 1. 停掉 Mac 上的代理
+pkill -f proxy2.py
+
+# 2. 撤掉路由器上的劫持规则（当前是按手机 MAC 匹配）
+ssh <router> 'nft -a list chain inet fw4 dstnat | grep 198.18.0.0/16'
+ssh <router> 'nft delete rule inet fw4 dstnat handle <HANDLE>'
+
+# 3. iPhone 移除根证书
+#    设置 → 通用 → VPN与设备管理 → REMAC Test CA → 移除描述文件
+#    设置 → 通用 → 关于本机 → 证书信任设置 → 关闭 REMAC Test CA
+#    设置 → 无线局域网 → ⓘ → 配置 DNS → 改回「自动」
+
+# 4. 如果之前加过 dnsmasq 的 address 覆盖，确认已清空
+ssh <router> 'uci show dhcp | grep address'
+```
+
+---
+
 ## 7. 版本变更风险
 
 以下信号出现时，说明协议挂了：
