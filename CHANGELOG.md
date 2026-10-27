@@ -4,6 +4,28 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/) and
 [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] - 2026-10-27
+
+### Changed
+
+- **The activity sensor now says what happened.** Its state used to be a bare
+  timestamp (`2026-10-27 22:07:06`), so the device activity log and the logbook
+  read `最近动态 → 2026-10-27 22:07:06` and told you nothing. The state is now a
+  sentence — `指纹开锁 · 屋主 · 22:06:42`, `密码开锁 · 22:07:02`, `门已打开`,
+  `门已关闭` — and the structured record is exposed as `last_event` /
+  `last_unlock`. The entity is no longer a diagnostic entity, so it shows up on
+  the device card.
+- `recent` now carries the last 20 records (was 10), each with a decoded `text`
+  field, so dashboards and templates can render a readable timeline without
+  re-implementing the decoder.
+
+### Fixed
+
+- **The activity state flickered between two timestamps.** `/device/log/list`
+  occasionally answers with a slightly different page, so the head of the list
+  could move backwards and the state — and the logbook — oscillated. Records are
+  now sorted newest-first and the state only ever advances.
+
 ## [1.1.2] - 2026-10-27
 
 ### Added

@@ -8,7 +8,7 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorStateClass,
 )
-from homeassistant.const import PERCENTAGE, EntityCategory
+from homeassistant.const import PERCENTAGE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
@@ -17,7 +17,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from . import RemacConfigEntry
 from .const import DOMAIN, SIGNAL_TEMP_PASSCODE
 from .coordinator import RemacCoordinator
-from .decoder import decode_record
+from .decoder import describe_event
 from .entity import RemacEntity
 
 DOOR_STATES: dict[int, str] = {0: "open", 1: "closed"}
@@ -91,29 +91,37 @@ class RemacDoorStateSensor(RemacEntity, SensorEntity):
 
 
 class RemacActivitySensor(RemacEntity, SensorEntity):
-    """Timestamp of the newest activity record plus the recent history."""
+    """What happened last, in words, plus the recent activity history.
+
+    The state used to be a bare timestamp, which made the activity log and the
+    logbook unreadable: every line just said "最近动态 → 2026-10-27 22:07:06".
+    The state is now a sentence ("指纹开锁 · 屋主") followed by the clock time,
+    so two identical actions stay distinguishable and every record still lands
+    in the history. The full structured record is in ``last_event``.
+    """
 
     _attr_translation_key = "last_activity"
     _attr_icon = "mdi:history"
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator: RemacCoordinator) -> None:
         super().__init__(coordinator, "activity")
 
     @property
     def native_value(self) -> str | None:
-        logs = self._logs
-        return logs[0].get("createTime") if logs else None
+        event = self.coordinator.last_event
+        if not event:
+            return None
+        text = event.get("text") or describe_event(event)
+        stamp = str(event.get("time") or "")
+        clock = stamp.split(" ")[-1] if " " in stamp else stamp
+        return f"{text} · {clock}" if clock else text
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        users = self.coordinator.user_map
-        events = [
-            {"time": record.get("createTime"), **decode_record(record.get("data"), users)}
-            for record in self._logs[:10]
-        ]
         return {
-            "recent": events,
+            "last_event": self.coordinator.last_event,
+            "last_unlock": self.coordinator.last_unlock,
+            "recent": self.coordinator.recent_events(),
             "count": len(self._logs),
             "credentials": self.coordinator.lock_users,
         }

@@ -108,6 +108,33 @@ def decode_record(
     return event
 
 
+def describe_event(event: dict[str, Any]) -> str:
+    """Turn a decoded record into one short sentence a human can read.
+
+    Raw records are useless in the UI on their own — a bare ``0x0200`` or a
+    timestamp tells nobody *what* happened. Everything that ends up in a state,
+    an attribute or a logbook line goes through here, so the wording stays
+    identical everywhere.
+    """
+    kind = event.get("type")
+    if kind == "unlock":
+        method = event.get("method") or "开锁"
+        text = f"{method}开锁"
+        name = event.get("user_name")
+        # "屋主" is information, "普通指纹" would just repeat the method.
+        if name and str(name) not in (str(method), str(event.get("user_type") or "")):
+            text = f"{text} · {name}"
+        return text
+    if kind == "outside_open":
+        return "室外开锁"
+    if kind == "door":
+        return "门已打开" if event.get("door_open") else "门已关闭"
+    if kind == "battery":
+        value = event.get("value")
+        return f"电量 {value}%" if value is not None else "电量上报"
+    return str(event.get("label") or event.get("field") or "动态")
+
+
 def _as_mapping(raw: Any) -> dict[str, Any]:
     if isinstance(raw, dict):
         return raw

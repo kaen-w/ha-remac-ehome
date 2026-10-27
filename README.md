@@ -129,7 +129,7 @@
 | `lock.<门锁>` | lock | 门锁状态（只读） |
 | `sensor.<门锁>_battery` | sensor | 真实电量百分比 |
 | `sensor.<门锁>_door_state` | sensor | `open` / `closed` |
-| `sensor.<门锁>_last_activity` | sensor | 最近动态时间，属性含最近 10 条记录与凭证台账 |
+| `sensor.<门锁>_last_activity` | sensor | **最近动态**，状态是一句话（如 `指纹开锁 · 屋主 · 22:06:42`），属性 `last_event` / `last_unlock` / `recent`（最近 20 条，带 `text`） |
 | `sensor.<门锁>_temporary_passcode` | sensor | 最近生成的临时密码 + 过期时间 |
 | `binary_sensor.<门锁>_online` | binary_sensor | 云端在线状态 |
 | `binary_sensor.<门锁>_low_battery` | binary_sensor | 电量低告警 |

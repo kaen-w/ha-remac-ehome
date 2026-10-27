@@ -17,7 +17,7 @@ from .const import (
     STATUS_EVERY,
     USERS_EVERY,
 )
-from .decoder import decode_record
+from .decoder import decode_record, describe_event
 from .exceptions import (
     RemacAuthError,
     RemacConnectionError,
@@ -73,6 +73,7 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.gateway_dev: dict[str, Any] = {}
         self.lock_users: list[dict[str, Any]] = []
         self._logs: list[dict[str, Any]] = []
+        self.last_event: dict[str, Any] | None = None
         self._status: dict[str, Any] = {}
         self._seen: set[str] = set()
         self._primed = False
@@ -128,6 +129,59 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return mapping
 
     # ----------------------------------------------------------------- update
+    def recent_events(self, limit: int = 20) -> list[dict[str, Any]]:
+        """Decoded activity records, newest first, each with a readable ``text``."""
+        users = self.user_map
+        events: list[dict[str, Any]] = []
+        for record in self._logs[:limit]:
+            event = decode_record(record.get("data"), users)
+            events.append(
+                {
+                    "time": record.get("createTime"),
+                    **event,
+                    "text": describe_event(event),
+                }
+            )
+        return events
+
+    @property
+    def last_unlock(self) -> dict[str, Any] | None:
+        """Newest record that actually opened the lock, if any."""
+        for event in self.recent_events():
+            if event.get("type") == "unlock":
+                return event
+        return None
+
+    def _track_last_event(self) -> None:
+        """Remember the newest record ever seen, and only ever move forward.
+
+        ``/device/log/list`` sometimes answers with a slightly different page, so
+        the head of the list can jump backwards. A state that follows the raw
+        head flickers between two timestamps and litters the logbook with
+        meaningless changes, so advance monotonically instead.
+        """
+        if not self._logs:
+            return
+        record = self._logs[0]
+        when = str(record.get("createTime") or "")
+        if self.last_event is not None:
+            previous = str(self.last_event.get("time") or "")
+            if when <= previous:
+                return
+        event = decode_record(record.get("data"), self.user_map)
+        self.last_event = {
+            "time": when,
+            **event,
+            "text": describe_event(event),
+        }
+
+    @staticmethod
+    def _newest_first(logs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Sort records newest first — ``createTime`` is ``YYYY-MM-DD HH:MM:SS``."""
+        return sorted(
+            logs, key=lambda row: str(row.get("createTime") or ""), reverse=True
+        )
+
     async def _async_update_data(self) -> dict[str, Any]:
         try:
             if not self.lock_dev:
@@ -148,7 +202,9 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # "9999 智能服务未响应"). Never let it take the whole integration
             # down: keep the last known records and retry next cycle.
             try:
-                self._logs = await self.api.async_get_logs(self.dev_code, page_size=20)
+                self._logs = self._newest_first(
+                    await self.api.async_get_logs(self.dev_code, page_size=20)
+                )
             except RemacAuthError:
                 raise
             except Exception as err:  # noqa: BLE001
@@ -165,6 +221,7 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     )
             else:
                 self._log_failures = 0
+                self._track_last_event()
                 self._emit_new_records(self._logs)
             self._tick += 1
         except RemacCredentialsError as err:
