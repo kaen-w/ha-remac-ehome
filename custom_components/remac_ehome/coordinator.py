@@ -5,19 +5,24 @@ import logging
 from datetime import timedelta
 from typing import Any
 
+from homeassistant.components import persistent_notification
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .api import RemacApi
 from .const import (
     DOMAIN,
     EVENT_DOOR,
     DEFAULT_SCAN_INTERVAL,
+    NOTIFICATION_TEMP_PASSCODE,
+    SIGNAL_TEMP_PASSCODE,
     STATUS_EVERY,
     USERS_EVERY,
 )
-from .decoder import decode_record, describe_event
+from .decoder import decode_record, describe_event, latest_temp_unlock
 from .exceptions import (
     RemacAuthError,
     RemacConnectionError,
@@ -28,6 +33,20 @@ from .exceptions import (
 _LOGGER = logging.getLogger(__name__)
 
 MAX_TRACKED_RECORDS = 500
+
+
+def _is_expired(stamp: Any) -> bool:
+    """Return True when an ISO timestamp is in the past."""
+    expires = dt_util.parse_datetime(str(stamp)) if stamp else None
+    return bool(expires and expires <= dt_util.now())
+
+
+def _local_stamp(stamp: Any) -> str:
+    """Normalise an ISO timestamp to the cloud's ``YYYY-MM-DD HH:MM:SS`` form."""
+    parsed = dt_util.parse_datetime(str(stamp)) if stamp else None
+    if parsed is None:
+        return ""
+    return dt_util.as_local(parsed).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def is_lock(device: dict[str, Any]) -> bool:
@@ -182,6 +201,53 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             logs, key=lambda row: str(row.get("createTime") or ""), reverse=True
         )
 
+    def _retire_temp_passcode(self) -> None:
+        """Retire a temporary passcode once it was spent or has expired.
+
+        The passcode is single use. It used to stay in the sensor state (and so
+        on every dashboard) after somebody had already opened the door with it,
+        and forever after its TTL ran out — both misleading. The stored record
+        is now marked and the state cleared as soon as either happens.
+        """
+        store = self.hass.data.get(DOMAIN, {}).get(self.entry_id)
+        if not store:
+            return
+        record = store.get("last_passcode")
+        if not record or record.get("status") not in (None, "active"):
+            return
+
+        used_at = latest_temp_unlock(
+            self.recent_events(), _local_stamp(record.get("generated_at"))
+        )
+        status = "used" if used_at else None
+        if status is None and _is_expired(record.get("expires_at")):
+            status = "expired"
+        if status is None:
+            return
+
+        record["status"] = status
+        if used_at:
+            record["used_at"] = used_at
+        else:
+            record["expired_at"] = dt_util.now().strftime("%Y-%m-%d %H:%M:%S")
+        _LOGGER.info(
+            "temporary passcode (%s) %s — clearing it",
+            record.get("username"),
+            status,
+        )
+        persistent_notification.async_dismiss(
+            self.hass, notification_id=NOTIFICATION_TEMP_PASSCODE
+        )
+        async_dispatcher_send(self.hass, SIGNAL_TEMP_PASSCODE)
+        self.hass.bus.async_fire(
+            f"{DOMAIN}_temp_password_retired",
+            {
+                "status": status,
+                "username": record.get("username"),
+                "at": record.get("used_at") or record.get("expired_at"),
+            },
+        )
+
     async def _async_update_data(self) -> dict[str, Any]:
         try:
             if not self.lock_dev:
@@ -223,6 +289,7 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self._log_failures = 0
                 self._track_last_event()
                 self._emit_new_records(self._logs)
+            self._retire_temp_passcode()
             self._tick += 1
         except RemacCredentialsError as err:
             # Wrong phone/password -> ask the user, HA shows the reauth dialog.

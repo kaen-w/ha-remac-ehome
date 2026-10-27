@@ -135,6 +135,31 @@ def describe_event(event: dict[str, Any]) -> str:
     return str(event.get("label") or event.get("field") or "动态")
 
 
+def latest_temp_unlock(
+    events: list[dict[str, Any]], since: str = ""
+) -> str | None:
+    """Return when a temporary passcode was spent, or ``None`` if it was not.
+
+    The M3 passcode is **single use**: the lock logs one ``0x2100`` unlock when
+    somebody opens the door with it, and the code is dead afterwards. This looks
+    for the newest such record and only accepts it when it happened at or after
+    ``since`` (the moment *our* passcode was created), so a leftover temporary
+    unlock from an earlier passcode cannot retire the current one.
+
+    ``events`` must be newest-first and ``since`` uses the same
+    ``YYYY-MM-DD HH:MM:SS`` format as the cloud's ``createTime``.
+    """
+    for event in events:
+        if event.get("type") != "unlock":
+            continue
+        if not (event.get("temporary") or event.get("method") == "临时密码"):
+            continue
+        stamp = str(event.get("time") or "")
+        # The newest temporary unlock is older than our passcode -> still unused.
+        return stamp if stamp and stamp >= since else None
+    return None
+
+
 def _as_mapping(raw: Any) -> dict[str, Any]:
     if isinstance(raw, dict):
         return raw

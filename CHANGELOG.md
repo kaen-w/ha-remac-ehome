@@ -4,6 +4,22 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/) and
 [Semantic Versioning](https://semver.org/).
 
+## [1.2.1] - 2026-10-27
+
+### Fixed
+
+- **A used or expired temporary passcode kept sitting in the state.** The code
+  is single use, but nothing ever cleared it: after somebody opened the door
+  with it — and forever after its TTL ran out — `sensor.*_temporary_passcode`
+  (and every dashboard built on it) still displayed the dead code. The
+  passcode is now retired as soon as the lock logs a temporary-passcode unlock
+  or the expiry time passes: the state drops to unknown, `status` becomes
+  `used`/`expired`, `used_at`/`expired_at` record when, the persistent
+  notification carrying the secret is dismissed, and a
+  `remac_ehome_temp_password_retired` bus event fires.
+- A spent/expired verdict now survives a Home Assistant restart instead of
+  resurrecting the old code from the restored state.
+
 ## [1.2.0] - 2026-10-27
 
 ### Changed

@@ -128,7 +128,13 @@ class RemacActivitySensor(RemacEntity, SensorEntity):
 
 
 class RemacTempPasscodeSensor(RemacEntity, SensorEntity, RestoreEntity):
-    """Most recently generated temporary passcode."""
+    """Most recently generated temporary passcode.
+
+    The passcode is single use, so the state only shows it while it is actually
+    usable. Once it has been spent (the lock logs a temporary-passcode unlock)
+    or its TTL has run out, the state drops to unknown and ``status`` says why —
+    leaving a dead code on the dashboard was the whole point of this fix.
+    """
 
     _attr_translation_key = "temp_passcode"
     _attr_icon = "mdi:key-variant"
@@ -145,18 +151,32 @@ class RemacTempPasscodeSensor(RemacEntity, SensorEntity, RestoreEntity):
         return self._hass.data.get(DOMAIN, {}).get(self._entry_id) or {}
 
     @property
+    def _last(self) -> dict[str, Any]:
+        return self._store.get("last_passcode") or {}
+
+    @property
     def native_value(self) -> str | None:
-        return (self._store.get("last_passcode") or {}).get("passcode")
+        last = self._last
+        if last.get("status") in ("used", "expired"):
+            return None
+        return last.get("passcode")
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        last = self._store.get("last_passcode") or {}
-        return {
+        last = self._last
+        status = last.get("status") or ("active" if last.get("passcode") else None)
+        attrs: dict[str, Any] = {
+            "status": status,
             "username": last.get("username"),
             "expires_at": last.get("expires_at"),
             "expire_seconds": last.get("expire"),
             "generated_at": last.get("generated_at"),
         }
+        if last.get("used_at"):
+            attrs["used_at"] = last["used_at"]
+        if last.get("expired_at"):
+            attrs["expired_at"] = last["expired_at"]
+        return attrs
 
     async def async_added_to_hass(self) -> None:
         """Restore the last passcode across restarts."""
@@ -164,13 +184,24 @@ class RemacTempPasscodeSensor(RemacEntity, SensorEntity, RestoreEntity):
         last_state = await self.async_get_last_state()
         store = self._store
         if last_state is not None and store and not store.get("last_passcode"):
-            if last_state.state not in ("unknown", "unavailable", ""):
+            attrs = last_state.attributes
+            # Keep a spent/expired passcode spent after a restart: restore the
+            # verdict too, not just the code.
+            status = attrs.get("status")
+            if status in ("used", "expired") or last_state.state not in (
+                "unknown",
+                "unavailable",
+                "",
+            ):
                 store["last_passcode"] = {
                     "passcode": last_state.state,
-                    "username": last_state.attributes.get("username"),
-                    "expires_at": last_state.attributes.get("expires_at"),
-                    "expire": last_state.attributes.get("expire_seconds"),
-                    "generated_at": last_state.attributes.get("generated_at"),
+                    "username": attrs.get("username"),
+                    "expires_at": attrs.get("expires_at"),
+                    "expire": attrs.get("expire_seconds"),
+                    "generated_at": attrs.get("generated_at"),
+                    "status": status,
+                    "used_at": attrs.get("used_at"),
+                    "expired_at": attrs.get("expired_at"),
                 }
         self.async_on_remove(
             async_dispatcher_connect(

@@ -42,6 +42,8 @@ DEFAULT_HOUSE_ID: Final = "10000001"
 EVENT_DOOR: Final = f"{DOMAIN}_door"
 #: Internal dispatcher signal for the temporary-passcode sensor.
 SIGNAL_TEMP_PASSCODE: Final = f"{DOMAIN}_temp_passcode"
+#: Persistent notification that carries the freshly generated passcode.
+NOTIFICATION_TEMP_PASSCODE: Final = f"{DOMAIN}_temp_password"
 
 SERVICE_TEMP_PASSWORD: Final = "generate_temp_password"
 

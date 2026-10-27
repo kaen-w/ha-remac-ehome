@@ -130,7 +130,7 @@
 | `sensor.<门锁>_battery` | sensor | 真实电量百分比 |
 | `sensor.<门锁>_door_state` | sensor | `open` / `closed` |
 | `sensor.<门锁>_last_activity` | sensor | **最近动态**，状态是一句话（如 `指纹开锁 · 屋主 · 22:06:42`），属性 `last_event` / `last_unlock` / `recent`（最近 20 条，带 `text`） |
-| `sensor.<门锁>_temporary_passcode` | sensor | 最近生成的临时密码 + 过期时间 |
+| `sensor.<门锁>_temporary_passcode` | sensor | **当前可用的**临时密码 + 过期时间；一次性，用掉或过期后自动清空，`status` 变为 `used`/`expired` |
 | `binary_sensor.<门锁>_online` | binary_sensor | 云端在线状态 |
 | `binary_sensor.<门锁>_low_battery` | binary_sensor | 电量低告警 |
 | `button.<门锁>_generate_temporary_passcode` | button | **生成临时密码** |

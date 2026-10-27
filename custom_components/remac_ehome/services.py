@@ -10,7 +10,7 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, SIGNAL_TEMP_PASSCODE
+from .const import DOMAIN, NOTIFICATION_TEMP_PASSCODE, SIGNAL_TEMP_PASSCODE
 from .exceptions import RemacError
 
 _LOGGER = logging.getLogger(__name__)
@@ -51,7 +51,7 @@ async def async_generate_temp_password(
         f"使用者：**{username}**\n\n密码：### `{passcode}`\n\n"
         f"有效期：{expire // 60} 分钟（至 {expires_at.strftime('%H:%M:%S')}）",
         title="云邻e家 · 临时密码",
-        notification_id=f"{DOMAIN}_temp_password",
+        notification_id=NOTIFICATION_TEMP_PASSCODE,
     )
     async_dispatcher_send(hass, SIGNAL_TEMP_PASSCODE)
     hass.bus.async_fire(
