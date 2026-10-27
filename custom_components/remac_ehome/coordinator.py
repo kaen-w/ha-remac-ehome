@@ -17,9 +17,9 @@ from .const import (
     DOMAIN,
     EVENT_DOOR,
     DEFAULT_SCAN_INTERVAL,
+    LOG_SAFETY_EVERY,
     NOTIFICATION_TEMP_PASSCODE,
     SIGNAL_TEMP_PASSCODE,
-    STATUS_EVERY,
     USERS_EVERY,
 )
 from .decoder import decode_record, describe_event, latest_temp_unlock
@@ -94,6 +94,8 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._logs: list[dict[str, Any]] = []
         self.last_event: dict[str, Any] | None = None
         self._status: dict[str, Any] = {}
+        self._status_stamp = ""
+        self._log_pending = False
         self._seen: set[str] = set()
         self._primed = False
         self._tick = 0
@@ -194,6 +196,20 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "text": describe_event(event),
         }
 
+    def _status_changed(self) -> bool:
+        """Return True when the lock reported something since the last poll.
+
+        ``lastStatusUpdate`` is the epoch-ms stamp of the newest report the
+        gateway forwarded, so it moves exactly when there is a new activity
+        record to collect (verified against real unlocks and door open/close
+        events). It is the whole reason this integration can poll slowly
+        without missing events.
+        """
+        stamp = str(self._status.get("lastStatusUpdate") or "")
+        changed = bool(stamp) and stamp != self._status_stamp
+        self._status_stamp = stamp
+        return changed
+
     @staticmethod
     def _newest_first(logs: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Sort records newest first — ``createTime`` is ``YYYY-MM-DD HH:MM:SS``."""
@@ -253,8 +269,12 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if not self.lock_dev:
                 await self._async_discover()
 
-            if self._tick % STATUS_EVERY == 0 or not self._status:
-                self._status = await self.api.async_get_status(self.dev_code)
+            # Status is the cheap and reliable endpoint, and it carries
+            # ``lastStatusUpdate``: the lock's own "something happened" stamp.
+            # Polling it every cycle keeps the status entities fresh AND tells
+            # us whether the activity log is worth a request at all.
+            self._status = await self.api.async_get_status(self.dev_code)
+            changed = self._status_changed()
 
             if self._tick % USERS_EVERY == 0 or not self.lock_users:
                 try:
@@ -264,31 +284,47 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 except Exception as err:  # noqa: BLE001 - never break polling
                     _LOGGER.debug("lock user refresh failed: %s", err)
 
-            # The activity endpoint is flaky (occasionally answers
-            # "9999 智能服务未响应"). Never let it take the whole integration
-            # down: keep the last known records and retry next cycle.
-            try:
-                self._logs = self._newest_first(
-                    await self.api.async_get_logs(self.dev_code, page_size=20)
-                )
-            except RemacAuthError:
-                raise
-            except Exception as err:  # noqa: BLE001
-                if not self._logs:
-                    raise UpdateFailed(f"activity log unavailable: {err}") from err
-                self._log_failures += 1
-                if self._log_failures in (1, 10, 100):
-                    _LOGGER.warning(
-                        "activity log fetch failed %d time(s), keeping %d cached "
-                        "record(s): %s",
-                        self._log_failures,
-                        len(self._logs),
-                        err,
+            # The activity endpoint is both the flaky one (occasionally answers
+            # "9999 智能服务未响应") and the heavy one, so only ask for it when
+            # the lock actually reported something — plus a slow safety poll in
+            # case a stamp is ever missed. Latency is unchanged: the status poll
+            # that notices the change happens in the same cycle.
+            if (
+                changed
+                or self._log_pending
+                or not self._logs
+                or self._tick % LOG_SAFETY_EVERY == 0
+            ):
+                self._log_pending = True
+                try:
+                    self._logs = self._newest_first(
+                        await self.api.async_get_logs(self.dev_code, page_size=20)
                     )
-            else:
-                self._log_failures = 0
-                self._track_last_event()
-                self._emit_new_records(self._logs)
+                except RemacAuthError:
+                    raise
+                except Exception as err:  # noqa: BLE001
+                    # Keep retrying every cycle until it succeeds, so an event
+                    # is never swallowed by a single flaky answer.
+                    if not self._logs:
+                        raise UpdateFailed(f"activity log unavailable: {err}") from err
+                    self._log_failures += 1
+                    if self._log_failures in (1, 10, 100):
+                        _LOGGER.warning(
+                            "activity log fetch failed %d time(s), keeping %d cached "
+                            "record(s): %s",
+                            self._log_failures,
+                            len(self._logs),
+                            err,
+                        )
+                else:
+                    self._log_failures = 0
+                    self._log_pending = False
+                    self._track_last_event()
+                    self._emit_new_records(self._logs)
+                _LOGGER.debug(
+                    "activity log fetched (status stamp %s)",
+                    "moved" if changed else "safety poll",
+                )
             self._retire_temp_passcode()
             self._tick += 1
         except RemacCredentialsError as err:

@@ -4,6 +4,24 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/) and
 [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] - 2026-10-27
+
+### Changed
+
+- **The activity log is no longer fetched on every poll.** ``status/get`` is
+  polled every cycle instead (it is the light, reliable endpoint) and its
+  ``lastStatusUpdate`` stamp — the epoch-ms time of the newest report the
+  gateway forwarded, verified against real unlocks and door events — decides
+  whether ``log/list`` is worth a request at all. A safety fetch every 10 polls
+  covers a missed stamp, and a failed fetch is retried on the very next cycle so
+  an event is never swallowed.
+
+  At a 3 s interval this is ~28.8k cheap status calls and a few dozen log calls
+  per day instead of ~36.7k calls of which 28.8k hit the heavy, occasionally
+  flaky log service. Latency is unchanged: the status poll that notices the
+  change runs in the same cycle. Status entities (door, battery, online) also
+  refresh every cycle now instead of every 4th.
+
 ## [1.2.1] - 2026-10-27
 
 ### Fixed

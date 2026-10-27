@@ -24,8 +24,9 @@ CONF_SCAN_INTERVAL: Final = "scan_interval"
 #: Optional URL that hands out the token the official app is currently using.
 #: When set the integration NEVER logs in, so it cannot kick the app offline.
 CONF_TOKEN_SOURCE: Final = "token_source"
-#: Status endpoint is refreshed every Nth log poll.
-STATUS_EVERY: Final = 4
+#: The activity log is only fetched when the lock's ``lastStatusUpdate`` stamp
+#: moves, plus this many polls as a safety net (so a missed stamp still heals).
+LOG_SAFETY_EVERY: Final = 10
 #: Lock credential list is refreshed every Nth log poll (~10 minutes).
 USERS_EVERY: Final = 40
 
