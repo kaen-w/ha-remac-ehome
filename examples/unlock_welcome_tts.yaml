@@ -1,0 +1,97 @@
+# 开锁欢迎语 —— 按开锁方式让客厅小爱播放不同的欢迎语
+#
+# 依赖：
+#   1. 本集成（remac_ehome）已经接入门锁，并会为每条新记录触发
+#      `remac_ehome_door` 事件（事件字段见 README「事件」一节）。
+#   2. 一台能播报文本的小爱音箱。下面用的是小米官方集成（xiaomi_home）的
+#      `notify.*_play_text` 实体；如果你用的是 XiaoMi Miot Auto（xiaomi_miot），
+#      把最后那次 `notify.send_message` 换成：
+#          action: xiaomi_miot.intelligent_speaker
+#          data:
+#            entity_id: media_player.xxx_play_control
+#            text: "{{ speech }}"
+#            execute: false
+#            silent: false
+#
+# 落点：把整段贴进 configuration.yaml 的 `automation:` 下，或直接用
+# 设置 → 自动化 → 新建 → 切到 YAML 编辑粘贴。
+
+- id: remac_door_welcome_tts
+  alias: 门锁开锁_客厅小爱欢迎语
+  description: >-
+    门锁上报开锁时，按开锁方式（指纹 / 密码 / 临时密码）播放不同的欢迎语。
+    事件由本地集成轮询云端日志得到，延迟约等于扫描间隔（默认 5 秒）。
+  mode: single
+  max_exceeded: silent
+  trigger:
+    - platform: event
+      event_type: remac_ehome_door
+      event_data:
+        type: unlock
+  variables:
+    # ---- 设备：换成你自己的音箱实体 ----
+    speaker_mp: media_player.xiaomi_cn_2085712130_oh2p                 # 用于调音量
+    speaker_tts: notify.xiaomi_cn_2085712130_oh2p_play_text_a_7_3     # 播放文本（TTS）
+    speaker_dnd: switch.xiaomi_cn_2085712130_oh2p_no_disturb_p_9_1    # 勿扰开关，当总开关用
+    # ---- 事件数据（手动运行本自动化时退化为「指纹」示例）----
+    payload: "{{ trigger.event.data if (trigger is defined and trigger.event is defined and trigger.event) else {} }}"
+    method: "{{ payload.method | default('未知') }}"
+    who: "{{ payload.user_name | default('') | trim }}"
+    hour: "{{ now().hour }}"
+    greet: >-
+      {%- if hour < 5 -%}夜深了
+      {%- elif hour < 9 -%}早上好
+      {%- elif hour < 12 -%}上午好
+      {%- elif hour < 14 -%}中午好
+      {%- elif hour < 18 -%}下午好
+      {%- elif hour < 23 -%}晚上好
+      {%- else -%}夜深了
+      {%- endif %}
+    # ---- 欢迎语：想改词只改这里 ----
+    speech: >-
+      {%- if method == '指纹' -%}
+        {{ greet }}{{ ('，' ~ who) if who else '' }}，欢迎回家
+      {%- elif method == '密码' -%}
+        {{ greet }}，密码已验证，欢迎回家
+      {%- elif method == '临时密码' -%}
+        {{ greet }}，临时密码已验证，{{ (who ~ '') if who else '客人' }}请进
+      {%- else -%}
+        {{ greet }}，门已打开
+      {%- endif %}
+    vol_before: "{{ state_attr(speaker_mp, 'volume_level') | float(0.4) }}"
+    # 夜里轻声一点，其余时间保证至少 35% 能听清（播完会还原）
+    vol_want: "{{ 0.28 if (hour >= 23 or hour < 7) else 0.35 }}"
+    need_vol: "{{ vol_before < vol_want }}"
+  condition:
+    # 小爱的勿扰开着就不打扰；实体不可用时按「没开勿扰」处理
+    - condition: template
+      value_template: "{{ not is_state(speaker_dnd, 'on') }}"
+    # 想让夜里彻底不出声，再加这一条：
+    # - condition: template
+    #   value_template: "{{ 7 <= now().hour < 23 }}"
+  action:
+    - if:
+        - condition: template
+          value_template: "{{ need_vol }}"
+      then:
+        - action: media_player.volume_set
+          target:
+            entity_id: "{{ speaker_mp }}"
+          data:
+            volume_level: "{{ vol_want }}"
+        - delay: 0.5
+    - action: notify.send_message
+      target:
+        entity_id: "{{ speaker_tts }}"
+      data:
+        message: "{{ speech }}"
+    - if:
+        - condition: template
+          value_template: "{{ need_vol }}"
+      then:
+        - delay: 8
+        - action: media_player.volume_set
+          target:
+            entity_id: "{{ speaker_mp }}"
+          data:
+            volume_level: "{{ vol_before }}"
