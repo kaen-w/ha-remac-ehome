@@ -31,7 +31,6 @@ async def async_setup_entry(
 class RemacOnlineSensor(RemacEntity, BinarySensorEntity):
     """Cloud connectivity of the lock."""
 
-    _attr_name = "Online"
     _attr_translation_key = "online"
     _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
     _attr_entity_category = EntityCategory.DIAGNOSTIC
@@ -47,7 +46,6 @@ class RemacOnlineSensor(RemacEntity, BinarySensorEntity):
 class RemacLowBatterySensor(RemacEntity, BinarySensorEntity):
     """Low battery warning reported by the lock."""
 
-    _attr_name = "Low battery"
     _attr_translation_key = "low_battery"
     _attr_device_class = BinarySensorDeviceClass.BATTERY
     _attr_icon = "mdi:battery-alert"

@@ -18,7 +18,12 @@ from .const import (
     USERS_EVERY,
 )
 from .decoder import decode_record
-from .exceptions import RemacAuthError, RemacConnectionError, RemacCredentialsError
+from .exceptions import (
+    RemacAuthError,
+    RemacConnectionError,
+    RemacCredentialsError,
+    RemacLoginDeferred,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -72,6 +77,7 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._seen: set[str] = set()
         self._primed = False
         self._tick = 0
+        self._log_failures = 0
 
     # ------------------------------------------------------------------ props
     @property
@@ -138,15 +144,38 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 except Exception as err:  # noqa: BLE001 - never break polling
                     _LOGGER.debug("lock user refresh failed: %s", err)
 
-            self._logs = await self.api.async_get_logs(self.dev_code, page_size=20)
+            # The activity endpoint is flaky (occasionally answers
+            # "9999 智能服务未响应"). Never let it take the whole integration
+            # down: keep the last known records and retry next cycle.
+            try:
+                self._logs = await self.api.async_get_logs(self.dev_code, page_size=20)
+            except RemacAuthError:
+                raise
+            except Exception as err:  # noqa: BLE001
+                if not self._logs:
+                    raise UpdateFailed(f"activity log unavailable: {err}") from err
+                self._log_failures += 1
+                if self._log_failures in (1, 10, 100):
+                    _LOGGER.warning(
+                        "activity log fetch failed %d time(s), keeping %d cached "
+                        "record(s): %s",
+                        self._log_failures,
+                        len(self._logs),
+                        err,
+                    )
+            else:
+                self._log_failures = 0
+                self._emit_new_records(self._logs)
             self._tick += 1
-            self._emit_new_records(self._logs)
         except RemacCredentialsError as err:
             # Wrong phone/password -> ask the user, HA shows the reauth dialog.
             raise ConfigEntryAuthFailed(str(err)) from err
+        except RemacLoginDeferred as err:
+            # Inside the cool-down window: expected while the app is open.
+            raise UpdateFailed(str(err), log_message=False) from err
         except RemacAuthError as err:
-            # Token rejected and we are waiting out the backoff before logging in
-            # again. Not a user problem: keep retrying quietly.
+            # Token rejected and the next login is backed off. Not a user
+            # problem: keep retrying quietly.
             raise UpdateFailed(str(err)) from err
         except RemacConnectionError as err:
             raise UpdateFailed(str(err)) from err

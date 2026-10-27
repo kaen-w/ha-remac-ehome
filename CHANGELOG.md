@@ -4,6 +4,24 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/) and
 [Semantic Versioning](https://semver.org/).
 
+## [1.1.1] - 2026-10-27
+
+### Fixed
+
+- **Entity names were stuck in English.** Each entity declared both
+  `_attr_name` and `_attr_translation_key`; the hardcoded `_attr_name` wins and
+  silently bypassed the translation files. Removed the hardcoded names so the
+  language of the Home Assistant UI is respected.
+- **Login backoff exploded to the 10 minute cap within 20 seconds.** The
+  cool-down path raised the same error as a failed login attempt, so every 5 s
+  poll doubled the wait even though no login was attempted. Waiting is now a
+  distinct `RemacLoginDeferred` condition that never escalates the backoff, and
+  it no longer logs an ERROR on every poll.
+- **A flaky activity endpoint took the whole integration down.** When
+  `/sl/home/device/log/list` answered `9999 智能服务未响应` every entity became
+  unavailable. Log fetch failures now keep the cached records, log at most a
+  few warnings, and leave the status entities working.
+
 ## [1.1.0] - 2026-10-24
 
 ### Added

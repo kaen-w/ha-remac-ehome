@@ -33,7 +33,6 @@ class RemacTempDuration(RemacEntity, NumberEntity, RestoreEntity):
     one minute steps, so this mirrors that exactly.
     """
 
-    _attr_name = "Temporary passcode duration"
     _attr_translation_key = "temp_duration"
     _attr_icon = "mdi:timer-outline"
     _attr_native_min_value = MIN_MINUTES

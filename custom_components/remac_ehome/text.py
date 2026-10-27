@@ -26,7 +26,6 @@ async def async_setup_entry(
 class RemacTempUserText(RemacEntity, TextEntity, RestoreEntity):
     """Label attached to the next generated passcode."""
 
-    _attr_name = "Temporary passcode holder"
     _attr_translation_key = "temp_user"
     _attr_icon = "mdi:account-key"
     _attr_native_min = 1

@@ -26,6 +26,7 @@ from .exceptions import (
     RemacAuthError,
     RemacConnectionError,
     RemacCredentialsError,
+    RemacLoginDeferred,
 )
 from .rsa import encrypt as rsa_encrypt
 
@@ -176,7 +177,9 @@ class RemacApi:
             if self._token_born and (time.monotonic() - self._token_born) > LOGIN_BACKOFF_MAX:
                 if self._login_backoff != LOGIN_BACKOFF_START:
                     _LOGGER.debug(
-                        "session stayed alive for a long time, resetting login backoff"
+                        "session stayed alive %ds, resetting login backoff to %ds",
+                        int(time.monotonic() - self._token_born),
+                        int(LOGIN_BACKOFF_START),
                     )
                 self._login_backoff = LOGIN_BACKOFF_START
             if self.uses_token_source:
@@ -192,16 +195,20 @@ class RemacApi:
                 _LOGGER.debug("access token rejected, attempting re-login")
                 try:
                     await self.async_login()
+                except RemacLoginDeferred:
+                    # Waiting on purpose — do not escalate anything.
+                    raise
                 except RemacCredentialsError:
                     raise
                 except RemacAuthError as err:
-                    # Back off so we stop kicking the app every few seconds.
+                    # A real login attempt failed; slow down to protect the
+                    # account, but only here.
                     self._login_backoff = min(
                         LOGIN_BACKOFF_MAX, self._login_backoff * 2
                     )
                     self._next_login_at = time.monotonic() + self._login_backoff
                     _LOGGER.warning(
-                        "cannot re-login yet (%s); next attempt in %ds",
+                        "login attempt failed (%s); next attempt in %ds",
                         err,
                         int(self._login_backoff),
                     )
@@ -225,15 +232,9 @@ class RemacApi:
         async with self._login_lock:
             now = time.monotonic()
             if now < self._next_login_at:
-                raise RemacAuthError(
-                    "login deferred to avoid fighting the app over the single "
-                    f"session (retrying in {int(self._next_login_at - now)}s)"
-                )
-            # Being kicked soon after logging in means the app is open and we
-            # lost the race; slow down instead of escalating.
-            if self._last_login and (now - self._last_login) < self._login_backoff * 2:
-                self._login_backoff = min(
-                    LOGIN_BACKOFF_MAX, self._login_backoff * 1.5
+                raise RemacLoginDeferred(
+                    "login already scheduled, waiting another "
+                    f"{int(self._next_login_at - now)}s"
                 )
 
             public_key = await self._async_public_key()

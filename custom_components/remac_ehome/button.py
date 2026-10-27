@@ -25,7 +25,6 @@ async def async_setup_entry(
 class RemacTempPasswordButton(RemacEntity, ButtonEntity):
     """Generate a passcode using the companion number/text helpers."""
 
-    _attr_name = "Generate temporary passcode"
     _attr_translation_key = "generate_temp_passcode"
     _attr_icon = "mdi:key-plus"
 

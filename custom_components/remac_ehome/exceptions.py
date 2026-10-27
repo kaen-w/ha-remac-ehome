@@ -12,6 +12,14 @@ class RemacAuthError(RemacError):
     """Authentication failed or the access token was rejected."""
 
 
+class RemacLoginDeferred(RemacAuthError):
+    """A login is already scheduled and we are still inside the cool-down.
+
+    This is NOT a failure: it must not escalate the backoff, otherwise a fast
+    poll loop would inflate the wait to the cap within seconds.
+    """
+
+
 class RemacCredentialsError(RemacAuthError):
     """The stored phone number / password were rejected.
 

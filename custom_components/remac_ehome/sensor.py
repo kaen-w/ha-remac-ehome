@@ -50,7 +50,6 @@ class RemacBatterySensor(RemacEntity, SensorEntity):
       showed "low battery" while the constant still reported 100).
     """
 
-    _attr_name = "Battery"
     _attr_translation_key = "battery"
     _attr_device_class = SensorDeviceClass.BATTERY
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -78,7 +77,6 @@ class RemacBatterySensor(RemacEntity, SensorEntity):
 class RemacDoorStateSensor(RemacEntity, SensorEntity):
     """Door contact state."""
 
-    _attr_name = "Door state"
     _attr_translation_key = "door_state"
     _attr_icon = "mdi:door"
     _attr_device_class = SensorDeviceClass.ENUM
@@ -95,7 +93,6 @@ class RemacDoorStateSensor(RemacEntity, SensorEntity):
 class RemacActivitySensor(RemacEntity, SensorEntity):
     """Timestamp of the newest activity record plus the recent history."""
 
-    _attr_name = "Last activity"
     _attr_translation_key = "last_activity"
     _attr_icon = "mdi:history"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
@@ -125,7 +122,6 @@ class RemacActivitySensor(RemacEntity, SensorEntity):
 class RemacTempPasscodeSensor(RemacEntity, SensorEntity, RestoreEntity):
     """Most recently generated temporary passcode."""
 
-    _attr_name = "Temporary passcode"
     _attr_translation_key = "temp_passcode"
     _attr_icon = "mdi:key-variant"
 
