@@ -16,13 +16,18 @@ from typing import Any
 #: ``user 0 -> bit 9 -> 0x0200 (512)``, which matches the device's own
 #: ``RegisterLockUser: [512]`` list, so the rule is solid.
 #:
-#: Observed samples: ``0x0200`` = fingerprint of user 0,
-#: ``0x2100`` = temporary passcode unlock. The temporary passcode appears to
-#: occupy an ephemeral slot (bit 13 = credential 4) that has no entry in the
-#: credential list, so it is matched by exact value below.
+#: Confirmed samples on a physical lock (fingerprint + passcode + temp passcode):
+#:
+#:   0x0200 (512)  -> fingerprint of registered user 0   (bit 9)
+#:   0x1100 (4352) -> keypad passcode
+#:   0x2100 (8448) -> temporary passcode
+#:
+#: The passcode kinds set bit 8 and then a slot bit above the credential range
+#: (bit 12 = passcode, bit 13 = temporary passcode). Those slots have no entry
+#: in the credential list, so they are matched by exact value.
 RECORD_METHODS: dict[int, str] = {
+    0x1100: "密码",
     0x2100: "临时密码",
-    0x1200: "密码",
 }
 #: Lowest bit used for credential numbers.
 USER_BIT_BASE = 9

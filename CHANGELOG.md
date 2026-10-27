@@ -4,6 +4,14 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/) and
 [Semantic Versioning](https://semver.org/).
 
+## [1.1.2] - 2026-10-27
+
+### Added
+
+- Recognise keypad passcode unlocks (`openRecord` `0x1100`). Together with
+  `0x0200` (fingerprint of a registered credential) and `0x2100` (temporary
+  passcode) all three unlock kinds are now labelled.
+
 ## [1.1.1] - 2026-10-27
 
 ### Fixed
