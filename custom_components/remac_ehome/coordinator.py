@@ -34,6 +34,13 @@ _LOGGER = logging.getLogger(__name__)
 
 MAX_TRACKED_RECORDS = 500
 
+#: How many consecutive polls a login cool-down may last before the entities are
+#: declared unavailable. The account is single session, so opening the official
+#: app invalidates our token and the integration has to wait out its login
+#: back-off — routine, not an outage, and blinking ``unavailable`` (plus one
+#: logbook line per entity) every time the app is used is pure noise.
+MAX_DEFERRED_POLLS = 20
+
 
 def _is_expired(stamp: Any) -> bool:
     """Return True when an ISO timestamp is in the past."""
@@ -100,6 +107,7 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._primed = False
         self._tick = 0
         self._log_failures = 0
+        self._deferred_polls = 0
 
     # ------------------------------------------------------------------ props
     @property
@@ -333,12 +341,18 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # Wrong phone/password -> ask the user, HA shows the reauth dialog.
             raise ConfigEntryAuthFailed(str(err)) from err
         except RemacLoginDeferred as err:
-            # Inside the login cool-down window: expected, not a user problem.
-            # ``UpdateFailed`` takes no ``log_message`` argument — passing one
-            # raised TypeError and surfaced as "Unexpected error fetching …"
-            # with a full traceback, every poll, while the cool-down lasted.
-            # Home Assistant already logs a failing streak at ERROR once and
-            # downgrades the repeats to debug, which is exactly what we want.
+            # Inside the login cool-down window: expected whenever the official
+            # app was opened, because the account allows only one session. Serve
+            # the cached data so the entities (and the logbook) stay quiet, and
+            # only report a failure once the window has dragged on.
+            self._deferred_polls += 1
+            if self.data and self._deferred_polls <= MAX_DEFERRED_POLLS:
+                _LOGGER.debug(
+                    "login still cooling down (poll %d): %s",
+                    self._deferred_polls,
+                    err,
+                )
+                return self.data
             raise UpdateFailed(str(err)) from err
         except RemacAuthError as err:
             # Token rejected and the next login is backed off. Not a user
@@ -348,6 +362,7 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise UpdateFailed(str(err)) from err
         except Exception as err:  # noqa: BLE001
             raise UpdateFailed(f"unexpected error: {err}") from err
+        self._deferred_polls = 0
         return {"status": self._status, "logs": self._logs}
 
     async def _async_discover(self) -> None:

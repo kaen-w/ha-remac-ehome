@@ -4,6 +4,24 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/) and
 [Semantic Versioning](https://semver.org/).
 
+## [1.3.4] - 2026-10-27
+
+### Fixed
+
+- **Every use of the official app made all entities blink unavailable.** The
+  account is single session, so opening the app invalidates our token; the
+  integration then sits in its login back-off for up to a minute and used to
+  fail the poll, which took every entity to ``unavailable`` and wrote one
+  logbook line per entity on the way back (including the passcode entities,
+  which made it look like a temporary passcode had been created). A cool-down
+  now keeps serving the cached data for up to :data:`MAX_DEFERRED_POLLS` polls
+  (60 s at a 3 s interval) and only reports a failure when it really drags on.
+
+  This was observed live: renaming a credential in the app at 15:33 kicked the
+  token, the poll failed at 15:34:01 with "login already scheduled, waiting
+  another 36s", and the logbook gained `临时密码`/`临时密码使用者` entries 39
+  seconds later when the entities came back.
+
 ## [1.3.3] - 2026-10-27
 
 ### Fixed
