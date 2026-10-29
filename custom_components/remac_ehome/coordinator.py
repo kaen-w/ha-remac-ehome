@@ -135,17 +135,19 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             user_no = user.get("userNo")
             if user_no is None:
                 continue
+            # ``name`` stays None when the app has not named this credential:
+            # falling back to the type name would make "the unnamed second
+            # fingerprint" look exactly like a named one.
             name = (
                 user.get("userRole")
                 or user.get("user_role")
                 or user.get("userName")
-                or user.get("typeName")
-                or user.get("type_name")
-                or str(user_no)
+                or None
             )
             type_name = user.get("typeName") or user.get("type_name") or ""
             mapping.setdefault(
-                str(user_no), {"name": str(name), "type": str(type_name)}
+                str(user_no),
+                {"name": str(name) if name else None, "type": str(type_name)},
             )
         return mapping
 

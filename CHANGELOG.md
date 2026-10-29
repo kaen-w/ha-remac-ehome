@@ -4,6 +4,36 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/) and
 [Semantic Versioning](https://semver.org/).
 
+## [1.3.2] - 2026-10-27
+
+### Fixed
+
+- **Unlocks by the second fingerprint were reported as the first user.** The
+  record was decoded with "bit ``9 + N`` = credential ``N``", which happens to
+  hold only for ``N = 0`` and silently ignored the low byte, so ``0x0201`` was
+  announced as user 0. ``openRecord`` is actually
+  ``(category << 8) | member``: ``0x0200`` = member 0, ``0x0201`` = member 1,
+  ``0x1100`` = keypad passcode, ``0x2100`` = temporary passcode.
+
+  It surfaced as an evening unlock that HA attributed to a household member who
+  was not there. Five days of records made the pattern obvious: every ``0x0201``
+  fell between 17:35 and 18:57, while ``0x0200`` was scattered across the day.
+
+- A credential the app has not named no longer masquerades as a named one: the
+  user ledger keeps ``name = null`` instead of falling back to the type name, so
+  the state reads ``指纹开锁 · 凭证2`` instead of ``指纹开锁``. When the member
+  cannot be found in the ledger at all the state says ``指纹开锁 · 待确认`` and
+  the name is left out — an unconfirmed record never invents a person.
+
+- Unlocks with a category nobody has decoded yet are reported as ``未知`` with
+  the raw bits in ``unmatched_bits`` instead of being forced onto a person.
+
+### Documentation
+
+- ``docs/PROTOCOL.md`` §5/§10 rewritten with the correct encoding, the four
+  ``0x0201`` evening records that exposed it, and the rule that a record must
+  match exactly before a person is named.
+
 ## [1.3.1] - 2026-10-27
 
 ### Fixed

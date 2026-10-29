@@ -9,28 +9,31 @@ from __future__ import annotations
 import json
 from typing import Any
 
-#: ``openRecord`` encoding, confirmed on a physical ``midea.doorlock.031``:
+#: ``openRecord`` encoding, confirmed on a physical ``midea.doorlock.031``.
 #:
-#:   bit ``9 + N``  -> credential number ``N``
+#: It is **not** a bitfield of credentials — it is ``(category << 8) | member``:
 #:
-#: ``user 0 -> bit 9 -> 0x0200 (512)``, which matches the device's own
-#: ``RegisterLockUser: [512]`` list, so the rule is solid.
+#:   ``0x0200`` (512)  -> category ``0x02`` (指纹), member ``0``  -> user 0
+#:   ``0x0201`` (513)  -> category ``0x02`` (指纹), member ``1``  -> user 1
+#:   ``0x1100`` (4352) -> category ``0x11`` (普通密码), member ``0``
+#:   ``0x2100`` (8448) -> category ``0x21`` (临时密码), member ``0``
 #:
-#: Confirmed samples on a physical lock (fingerprint + passcode + temp passcode):
-#:
-#:   0x0200 (512)  -> fingerprint of registered user 0   (bit 9)
-#:   0x1100 (4352) -> keypad passcode
-#:   0x2100 (8448) -> temporary passcode
-#:
-#: The passcode kinds set bit 8 and then a slot bit above the credential range
-#: (bit 12 = passcode, bit 13 = temporary passcode). Those slots have no entry
-#: in the credential list, so they are matched by exact value.
+#: The older reading ("bit ``9 + N`` = credential ``N``") looked right only
+#: because user 0 happens to land on bit 9; it predicted ``0x0400`` for user 1,
+#: which never appears, and it reported ``0x0201`` as user 0 as well — so an
+#: unlock by the second registered fingerprint was announced as the first user's.
+#: See ``docs/PROTOCOL.md`` §10 for the data that settled it.
+RECORD_CATEGORIES: dict[int, str] = {
+    0x02: "指纹",
+    0x11: "密码",
+    0x21: "临时密码",
+}
+
+#: Exact values whose category is not known yet, but whose meaning is.
 RECORD_METHODS: dict[int, str] = {
     0x1100: "密码",
     0x2100: "临时密码",
 }
-#: Lowest bit used for credential numbers.
-USER_BIT_BASE = 9
 
 #: Which payload field a record carries, and how to label it.
 FIELD_TYPES: dict[str, tuple[str, str]] = {
@@ -86,17 +89,7 @@ def decode_record(
     if field == "openRecord" and isinstance(value, int):
         event["record_hex"] = f"0x{value:04X}"
         event["bits"] = [bit for bit in range(24) if (value >> bit) & 1]
-        # Derive the method from the credential that owns the matching bit —
-        # this scales to any number of users. Only when no *registered* user
-        # matches do we fall back to the exact-value table, and otherwise stay
-        # honest with "未知" instead of guessing.
-        method = _attach_user(event, value, user_map)
-        if method is None:
-            method = RECORD_METHODS.get(value)
-            if method == "临时密码":
-                event["temporary"] = True
-        event["method"] = method or "未知"
-        event["record_label"] = f"{method}({event['record_hex']})"
+        _decode_open_record(event, value, user_map)
 
     if field == "doorState":
         event["door_open"] = value == DOOR_OPEN
@@ -120,7 +113,11 @@ def describe_event(event: dict[str, Any]) -> str:
     if kind == "unlock":
         method = event.get("method") or "开锁"
         text = f"{method}开锁"
-        name = event.get("user_name")
+        if event.get("credential_confirmed") is False:
+            # The record carried bits we cannot explain, so the method is all we
+            # know: never put a person's name on it.
+            return f"{text} · 待确认"
+        name = event.get("user_name") or event.get("user_label")
         # "屋主" is information, "普通指纹" would just repeat the method.
         if name and str(name) not in (str(method), str(event.get("user_type") or "")):
             text = f"{text} · {name}"
@@ -171,32 +168,64 @@ def _as_mapping(raw: Any) -> dict[str, Any]:
         return parsed if isinstance(parsed, dict) else {}
     return {}
 
-
-def _attach_user(
+def _decode_open_record(
     event: dict[str, Any], value: int, user_map: dict[str, Any] | None
-) -> str | None:
-    """Match the credential bit and return the unlock method for it.
+) -> None:
+    """Fill in the unlock method, and the person only when the record says so.
 
-    ``user_map`` maps ``userNo`` to ``{"name": ..., "type": ...}``.
+    ``openRecord`` is ``(category << 8) | member``. Category ``0x02`` means "a
+    member's fingerprint" and ``member`` is the credential number, so ``0x0201``
+    is user 1 — not user 0 with a mysterious extra bit.
+
+    The old rule ("bit ``9 + N``") ignored the low byte, which is why an evening
+    unlock by the *second* fingerprint was announced as the first user. When the
+    member is missing from the credential ledger, or the category is unknown, the
+    method is still reported but nobody is named.
     """
-    if not user_map:
+    category, member = value >> 8, value & 0xFF
+    method = RECORD_CATEGORIES.get(category)
+    if method is None:
+        method = RECORD_METHODS.get(value)
+
+    if method is not None:
+        event["category"] = f"0x{category:02X}"
+        event["member"] = member
+    if method == "临时密码":
+        event["temporary"] = True
+
+    if method == "指纹":
+        info = _credential(str(member), user_map)
+        if info is None:
+            # A fingerprint we cannot map to a credential (empty ledger, or a
+            # member the app does not list). Keep the method, refuse a name.
+            event["credential_confirmed"] = False
+        else:
+            name, type_name = info
+            event["credential_confirmed"] = True
+            event["user_no"] = str(member)
+            if name:
+                event["user_name"] = name
+            else:
+                # The app shows this credential by position when it has no name,
+                # so "凭证2" is still enough to tell it apart from the first one.
+                event["user_label"] = f"凭证{int(member) + 1}"
+            if type_name:
+                event["user_type"] = type_name
+                method = normalise_method(type_name, default=method)
+    elif method is None:
+        event["unmatched_bits"] = [bit for bit in range(24) if (value >> bit) & 1]
+
+    event["method"] = method or "未知"
+    event["record_label"] = f"{event['method']}({event['record_hex']})"
+
+
+def _credential(
+    user_no: str, user_map: dict[str, Any] | None
+) -> tuple[str | None, str | None] | None:
+    """Return ``(name, type_name)`` for a credential number, if it is known."""
+    if not user_map or user_no not in user_map:
         return None
-    for user_no, info in user_map.items():
-        try:
-            bit = USER_BIT_BASE + int(user_no)
-        except (TypeError, ValueError):
-            continue
-        if not value & (1 << bit):
-            continue
-        if isinstance(info, dict):
-            name = info.get("name")
-            type_name = info.get("type")
-        else:  # tolerate a plain string map
-            name, type_name = info, None
-        event["user_no"] = user_no
-        if name:
-            event["user_name"] = name
-        if type_name:
-            event["user_type"] = type_name
-        return normalise_method(type_name)
-    return None
+    info = user_map[user_no]
+    if isinstance(info, dict):
+        return info.get("name"), info.get("type")
+    return str(info), None
