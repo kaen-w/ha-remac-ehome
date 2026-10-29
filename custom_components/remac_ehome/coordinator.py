@@ -333,8 +333,13 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # Wrong phone/password -> ask the user, HA shows the reauth dialog.
             raise ConfigEntryAuthFailed(str(err)) from err
         except RemacLoginDeferred as err:
-            # Inside the cool-down window: expected while the app is open.
-            raise UpdateFailed(str(err), log_message=False) from err
+            # Inside the login cool-down window: expected, not a user problem.
+            # ``UpdateFailed`` takes no ``log_message`` argument — passing one
+            # raised TypeError and surfaced as "Unexpected error fetching …"
+            # with a full traceback, every poll, while the cool-down lasted.
+            # Home Assistant already logs a failing streak at ERROR once and
+            # downgrades the repeats to debug, which is exactly what we want.
+            raise UpdateFailed(str(err)) from err
         except RemacAuthError as err:
             # Token rejected and the next login is backed off. Not a user
             # problem: keep retrying quietly.

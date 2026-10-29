@@ -4,6 +4,18 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/) and
 [Semantic Versioning](https://semver.org/).
 
+## [1.3.3] - 2026-10-27
+
+### Fixed
+
+- **A login cool-down crashed the poller with a TypeError.** ``UpdateFailed``
+  takes no ``log_message`` argument, so every deferred poll raised
+  ``TypeError: HomeAssistantError.__init__() got an unexpected keyword argument
+  'log_message'`` and Home Assistant logged it as "Unexpected error fetching …
+  data" with a full traceback. Home Assistant already logs the first failure of
+  a streak at ERROR and downgrades the rest to debug, so the extra argument was
+  both wrong and unnecessary — it is simply gone.
+
 ## [1.3.2] - 2026-10-27
 
 ### Fixed
