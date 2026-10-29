@@ -7,6 +7,7 @@ from typing import Any
 
 from homeassistant.components import persistent_notification
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -16,6 +17,7 @@ from .api import RemacApi
 from .const import (
     DOMAIN,
     EVENT_DOOR,
+    EVENT_TEMP_RETIRED,
     DEFAULT_SCAN_INTERVAL,
     LOG_SAFETY_EVERY,
     NOTIFICATION_TEMP_PASSCODE,
@@ -119,6 +121,42 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def master_code(self) -> str:
         """Device code of the gateway the lock is paired to."""
         return (self.lock_dev.get("master") or {}).get("devCode", "")
+
+    @property
+    def lock_entity_id(self) -> str | None:
+        """Entity id of the lock entity, for logbook attribution."""
+        return er.async_get(self.hass).async_get_entity_id(
+            "lock", DOMAIN, f"{self.dev_code}_lock"
+        )
+
+    def temp_passcode_entity_id(self) -> str | None:
+        """Entity id of the temporary-passcode sensor."""
+        return er.async_get(self.hass).async_get_entity_id(
+            "sensor", DOMAIN, f"{self.dev_code}_temp_passcode"
+        )
+
+    @property
+    def device_id(self) -> str | None:
+        """Device-registry id of the lock, for the device Activity tab."""
+        entry = dr.async_get(self.hass).async_get_device(
+            identifiers={(DOMAIN, self.dev_code)}
+        )
+        return entry.id if entry else None
+
+    def event_targets(self, entity_id: str | None) -> dict[str, Any]:
+        """Keys that make an event show up in a filtered logbook query.
+
+        The device page's Activity tab queries the logbook with a device filter,
+        and that filter only matches events whose *event data* carries
+        ``entity_id`` or ``device_id``. Without them the door events were
+        invisible there even though the logbook knew how to describe them.
+        """
+        targets: dict[str, Any] = {"dev_code": self.dev_code}
+        if entity_id:
+            targets["entity_id"] = entity_id
+        if device_id := self.device_id:
+            targets["device_id"] = device_id
+        return targets
 
     @property
     def user_map(self) -> dict[str, dict[str, str]]:
@@ -266,8 +304,9 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         async_dispatcher_send(self.hass, SIGNAL_TEMP_PASSCODE)
         self.hass.bus.async_fire(
-            f"{DOMAIN}_temp_password_retired",
+            EVENT_TEMP_RETIRED,
             {
+                **self.event_targets(self.temp_passcode_entity_id()),
                 "status": status,
                 "username": record.get("username"),
                 "at": record.get("used_at") or record.get("expired_at"),
@@ -400,7 +439,7 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._seen.add(self._record_key(record))
             event = decode_record(record.get("data"), users)
             payload = {
-                "dev_code": self.dev_code,
+                **self.event_targets(self.lock_entity_id),
                 "device_name": self.lock_dev.get("devName"),
                 "time": record.get("createTime"),
                 **event,

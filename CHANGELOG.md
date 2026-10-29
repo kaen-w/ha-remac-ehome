@@ -4,6 +4,41 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/) and
 [Semantic Versioning](https://semver.org/).
 
+## [1.4.2] - 2026-10-27
+
+### Changed
+
+- Logbook event rows also carry the entity's display name, so the Activity list
+  renders "指纹开锁 · 家人" under "智能门锁" instead of an unnamed entry.
+
+## [1.4.1] - 2026-10-27
+
+### Fixed
+
+- **The events still did not appear in the device's Activity tab.** The logbook
+  can describe them, but a *filtered* logbook query (entity or device) only
+  matches events whose event data carries ``entity_id`` or ``device_id`` — ours
+  carried just ``dev_code``. Door events now ship ``entity_id`` (the lock) and
+  ``device_id``, passcode events the passcode sensor, so the device page shows
+  them alongside the state changes.
+
+## [1.4.0] - 2026-10-27
+
+### Added
+
+- **The events now show up in the logbook and in the device's Activity tab.**
+  They were plain bus events, which the Activity tab does not render, so it only
+  ever showed "最近动态 已变为 …" state lines — and after a restart it showed
+  nothing but the passcode entities coming back, which is how a harmless reload
+  could look like somebody had created a temporary passcode. A new
+  ``logbook.py`` platform describes ``remac_ehome_door``,
+  ``remac_ehome_temp_password_created`` and ``remac_ehome_temp_password_retired``,
+  attributing each one to the lock or the passcode sensor, with a readable
+  message ("指纹开锁 · 家人", "门已打开", "电量 17%", "生成临时密码（访客，30
+  分钟有效）", "临时密码（访客）已被使用，已失效") and an icon.
+- Both passcode events now also carry ``dev_code``, so they can be attributed to
+  the right device when several locks exist.
+
 ## [1.3.4] - 2026-10-27
 
 ### Fixed

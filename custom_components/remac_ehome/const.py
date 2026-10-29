@@ -41,6 +41,9 @@ DEFAULT_HOUSE_ID: Final = "10000001"
 
 #: Fired for every new door-lock log record.
 EVENT_DOOR: Final = f"{DOMAIN}_door"
+#: Fired when a temporary passcode is generated / retired.
+EVENT_TEMP_CREATED: Final = f"{DOMAIN}_temp_password_created"
+EVENT_TEMP_RETIRED: Final = f"{DOMAIN}_temp_password_retired"
 #: Internal dispatcher signal for the temporary-passcode sensor.
 SIGNAL_TEMP_PASSCODE: Final = f"{DOMAIN}_temp_passcode"
 #: Persistent notification that carries the freshly generated passcode.

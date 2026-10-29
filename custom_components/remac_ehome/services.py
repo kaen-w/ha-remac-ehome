@@ -10,7 +10,12 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, NOTIFICATION_TEMP_PASSCODE, SIGNAL_TEMP_PASSCODE
+from .const import (
+    DOMAIN,
+    EVENT_TEMP_CREATED,
+    NOTIFICATION_TEMP_PASSCODE,
+    SIGNAL_TEMP_PASSCODE,
+)
 from .exceptions import RemacError
 
 _LOGGER = logging.getLogger(__name__)
@@ -55,8 +60,9 @@ async def async_generate_temp_password(
     )
     async_dispatcher_send(hass, SIGNAL_TEMP_PASSCODE)
     hass.bus.async_fire(
-        f"{DOMAIN}_temp_password_created",
+        EVENT_TEMP_CREATED,
         {
+            **coordinator.event_targets(coordinator.temp_passcode_entity_id()),
             "passcode": passcode,
             "username": username,
             "expire_seconds": expire,
