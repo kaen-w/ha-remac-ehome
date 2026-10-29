@@ -62,14 +62,26 @@ TOKEN_SCHEMA = vol.Schema(
     }
 )
 
-OPTIONS_SCHEMA = vol.Schema(
-    {
-        vol.Optional(CONF_MOBILE): str,
-        vol.Optional(CONF_PASSWORD): str,
-        vol.Optional(CONF_TOKEN): str,
-        vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): _interval_selector(),
-    }
-)
+def _options_schema(entry: ConfigEntry) -> vol.Schema:
+    """Build the options form, pre-filled from what is stored right now.
+
+    The password stays blank on purpose (empty means "keep the stored one"), but
+    the token source is pre-filled: it is not a secret, and submitting the form
+    with an empty field would otherwise silently drop back to password mode.
+    """
+    return vol.Schema(
+        {
+            vol.Optional(CONF_MOBILE, default=entry.data.get(CONF_MOBILE, "")): str,
+            vol.Optional(CONF_PASSWORD): str,
+            vol.Optional(
+                CONF_TOKEN_SOURCE, default=entry.data.get(CONF_TOKEN_SOURCE) or ""
+            ): str,
+            vol.Optional(
+                CONF_SCAN_INTERVAL,
+                default=entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
+            ): _interval_selector(),
+        }
+    )
 
 
 async def validate_input(
@@ -229,16 +241,22 @@ class RemacOptionsFlow(OptionsFlow):
         entry = self.config_entry
 
         if user_input is not None:
-            mobile = (user_input.get(CONF_MOBILE) or entry.data[CONF_MOBILE]).strip()
-            password = user_input.get(CONF_PASSWORD) or entry.data[CONF_PASSWORD]
+            mobile = (user_input.get(CONF_MOBILE) or entry.data.get(CONF_MOBILE) or "").strip()
+            password = user_input.get(CONF_PASSWORD) or entry.data.get(CONF_PASSWORD)
+            # Blank token source = password mode, which is why the field is
+            # pre-filled with whatever is stored instead of being empty.
+            token_source = (user_input.get(CONF_TOKEN_SOURCE) or "").strip() or None
             try:
                 await validate_input(
                     self.hass,
-                    token=(user_input.get(CONF_TOKEN) or "").strip() or None,
+                    token=None,
                     mobile=mobile,
                     password=password,
                     house_id=entry.data.get(CONF_HOUSE_ID, DEFAULT_HOUSE_ID),
                     device_id=entry.data.get(CONF_DEVICE_ID, DEFAULT_DEVICE_ID),
+                    # Validating a token-source entry must not log in, or saving
+                    # the options would kick the official app offline.
+                    token_source=token_source,
                 )
             except RemacAuthError:
                 errors["base"] = "invalid_auth"
@@ -251,6 +269,7 @@ class RemacOptionsFlow(OptionsFlow):
                         **entry.data,
                         CONF_MOBILE: mobile,
                         CONF_PASSWORD: password,
+                        CONF_TOKEN_SOURCE: token_source,
                     },
                     options={
                         **entry.options,
@@ -264,5 +283,5 @@ class RemacOptionsFlow(OptionsFlow):
                 return self.async_create_entry(title="", data={})
 
         return self.async_show_form(
-            step_id="init", data_schema=OPTIONS_SCHEMA, errors=errors
+            step_id="init", data_schema=_options_schema(entry), errors=errors
         )

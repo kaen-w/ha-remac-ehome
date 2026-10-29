@@ -40,11 +40,11 @@
     "step": {
       "init": {
         "title": "Update credentials",
-        "description": "Update the phone number or password, or paste a short-lived access token. The poll interval controls unlock event latency.",
+        "description": "Update the phone number, password or token-source URL. The poll interval controls unlock event latency.",
         "data": {
-          "token": "Access token (optional)",
-          "mobile": "Phone number (optional)",
-          "password": "Password (optional)",
+          "mobile": "Phone number",
+          "password": "Password (blank keeps the current one)",
+          "token_source": "Token source URL (blank = password mode)",
           "scan_interval": "Poll interval (seconds)"
         }
       }

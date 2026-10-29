@@ -4,6 +4,37 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/) and
 [Semantic Versioning](https://semver.org/).
 
+## [1.3.1] - 2026-10-27
+
+### Fixed
+
+- **Saving the options could kick the official app offline.** The options flow
+  validated the credentials by logging in even when the entry runs in
+  token-source mode — which by definition must never log in. It now validates
+  through the token source instead.
+- The options form had an "access token" field that was validated and then
+  thrown away (the token was never stored), and the token-source URL could only
+  be set once, when the integration was first added. The form now edits the
+  token-source URL (pre-filled, so submitting it cannot silently disable that
+  mode), the phone number and the poll interval, and drops the dead token field.
+
+### Documentation
+
+- The README claimed the access token only lives ~15 minutes. It actually lives
+  the advertised 7200 s: the log shows `logged in as …` exactly every two hours
+  (08:59 -> 10:59 -> 12:59) with no failed retries. The short lifetime was an
+  artefact of measuring while the official app was being opened, since every app
+  login invalidates all older tokens.
+
+- README brought back in line with 1.3.x: the feature table (20 activity
+  records with readable text, single-use passcodes, user ledger), the event
+  payload table (``text`` / ``temporary`` / ``user_type`` / ``door_label``), the
+  new ``remac_ehome_temp_password_retired`` event, the two-stage polling
+  explanation, the configuration field table (poll interval, token source), the
+  minimum Home Assistant version, and the troubleshooting entries for slow
+  events. The "known limitations" no longer claim that only ``0x2100`` is
+  decoded or that token-only operation is unsupported.
+
 ## [1.3.0] - 2026-10-27
 
 ### Changed
