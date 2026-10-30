@@ -4,6 +4,26 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/) and
 [Semantic Versioning](https://semver.org/).
 
+## [1.4.3] - 2026-10-27
+
+### Changed
+
+- Decode unlocks by RFID card (``0x03xx``) and by the mechanical key (``0x04xx``)
+  as well. 美的美居's own door-lock SDK ships the enum
+  ``DoorLockKeyInfo.KEY_TYPE_*``: 1 = password, 2 = fingerprint, 3 = RFID card,
+  4 = mechanical key — and the fingerprint value 2 is exactly the high byte of
+  the ``0x0200`` records this lock reports, which is what confirmed the
+  ``(keyType << 8) | keyId`` reading. A card is only named when the ledger entry
+  for that ``keyId`` really is a card, otherwise the record stays 待确认.
+
+### Documentation
+
+- ``docs/MEIJU-COMPARE.md``: what the lock can do under 美的美居 but not under
+  云邻e家, from a static analysis of 美居 11.7.15.3 — remote unlock, electronic
+  deadbolt, six alarm types, BLE + MCU firmware OTA, per-use credential
+  validity, Zigbee commissioning, and 4 credential kinds. Includes the caveat
+  that a Midea gateway is required for anything remote.
+
 ## [1.4.2] - 2026-10-27
 
 ### Changed

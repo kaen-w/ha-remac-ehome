@@ -23,8 +23,16 @@ from typing import Any
 #: which never appears, and it reported ``0x0201`` as user 0 as well — so an
 #: unlock by the second registered fingerprint was announced as the first user's.
 #: See ``docs/PROTOCOL.md`` §10 for the data that settled it.
+#: The high byte matches the credential type Midea's own door-lock SDK uses
+#: (``DoorLockKeyInfo.KEY_TYPE_*`` in 美的美居, extracted from the APK):
+#: 1 = password, 2 = fingerprint, 3 = RFID card, 4 = mechanical key.
+#: Fingerprint (``0x02``) is confirmed by real records; ``0x03``/``0x04`` are that
+#: same enum applied to this lock, which has simply never reported a card or the
+#: mechanical key. The keypad passcodes use their own codes (``0x11`` / ``0x21``).
 RECORD_CATEGORIES: dict[int, str] = {
     0x02: "指纹",
+    0x03: "感应卡",
+    0x04: "钥匙",
     0x11: "密码",
     0x21: "临时密码",
 }
@@ -193,11 +201,17 @@ def _decode_open_record(
     if method == "临时密码":
         event["temporary"] = True
 
-    if method == "指纹":
+    if method in ("指纹", "感应卡"):
         info = _credential(str(member), user_map)
+        if info is not None:
+            name, type_name = info
+            # The ledger entry must also *be* that kind of credential: keyId 0 of
+            # a card record is not the fingerprint stored as user 0.
+            if normalise_method(type_name) != method:
+                info = None
         if info is None:
-            # A fingerprint we cannot map to a credential (empty ledger, or a
-            # member the app does not list). Keep the method, refuse a name.
+            # A credential we cannot map (empty ledger, or a member the app does
+            # not list). Keep the method, refuse to invent a name.
             event["credential_confirmed"] = False
         else:
             name, type_name = info
