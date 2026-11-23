@@ -1,8 +1,8 @@
 # REMAC 云邻 e家 · Home Assistant 集成
 
-[![hassfest](https://img.shields.io/github/actions/workflow/status/kaen/ha-remac-ehome/hassfest.yml?label=hassfest)](https://github.com/kaen-w/ha-remac-ehome/actions/workflows/hassfest.yml)
-[![HACS](https://img.shields.io/github/actions/workflow/status/kaen/ha-remac-ehome/hacs.yml?label=HACS)](https://github.com/kaen-w/ha-remac-ehome/actions/workflows/hacs.yml)
-[![License](https://img.shields.io/github/license/kaen/ha-remac-ehome)](LICENSE)
+[![hassfest](https://img.shields.io/github/actions/workflow/status/kaen-w/ha-remac-ehome/hassfest.yml?label=hassfest)](https://github.com/kaen-w/ha-remac-ehome/actions/workflows/hassfest.yml)
+[![HACS](https://img.shields.io/github/actions/workflow/status/kaen-w/ha-remac-ehome/hacs.yml?label=HACS)](https://github.com/kaen-w/ha-remac-ehome/actions/workflows/hacs.yml)
+[![License](https://img.shields.io/github/license/kaen-w/ha-remac-ehome)](LICENSE)
 
 把**睿住（REMAC）X-Brain 系列网关**下的智能门锁接入 Home Assistant。
 支持实时开锁事件、状态监控、电量告警与**一次性临时密码生成**。
@@ -20,6 +20,14 @@
 - 协议通过抓包官方 App 还原，**可能随服务端更新随时失效**。
 - 使用本集成造成的任何后果（包括但不限于账号异常、设备不可用）由使用者自行承担。
 - 请仅在你**自己拥有**的账号和设备上使用。抓包与逆向仅供个人互操作研究。
+
+---
+
+## 隐私
+
+仓库和发布包里**没有任何真实账号数据**：手机号、家庭 ID、设备码、Zigbee MAC、人名一律是占位符
+（如 `13800138000`、`1234567890123456`），文档里的抓包样例也做了替换。
+你的手机号和密码只存在你自己 HA 的配置项里，不会进日志、不会进诊断数据。
 
 ---
 
@@ -76,8 +84,8 @@
 |---|---|---|
 | 手机号 | ✅ | 云邻e家 App 的登录手机号 |
 | 密码 | 🟡 | 密码模式必填；填了「令牌来源地址」后可以留空 |
-| 房屋 ID | ❌ | 默认 `10000001`，多套房时按需修改 |
-| 客户端指纹 | ❌ | 默认值可用，一般不用改；它是云端眼中的「设备」，换个值等于换台手机 |
+| 房屋 ID | ❌ | **留空自动识别**（登录后取账号下第一个家庭）；多套房时手动填 |
+| 客户端指纹 | ❌ | 留空自动生成；它是云端眼中的「设备」，换个值等于换台手机 |
 | 扫描间隔 | ❌ | 默认 5 秒，可设 3–60 秒，直接决定开锁事件延迟 |
 | 令牌来源地址 | ❌ | 填了就走「借用 App token」模式，永不登录（见下） |
 

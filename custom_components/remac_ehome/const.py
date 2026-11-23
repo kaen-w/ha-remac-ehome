@@ -36,8 +36,11 @@ CONF_PASSWORD: Final = "password"
 CONF_HOUSE_ID: Final = "house_id"
 CONF_DEVICE_ID: Final = "agent_device_id"
 
-DEFAULT_DEVICE_ID: Final = "0123456789abcdef0123456789abcdef"
-DEFAULT_HOUSE_ID: Final = "10000001"
+#: Both are optional: ``houseId`` is discovered after login (see
+#: :meth:`RemacApi.async_get_houses`) and the agent device id is generated once
+#: per install. Nothing account specific is baked into the code.
+DEFAULT_DEVICE_ID: Final = ""
+DEFAULT_HOUSE_ID: Final = ""
 
 #: Fired for every new door-lock log record.
 EVENT_DOOR: Final = f"{DOMAIN}_door"

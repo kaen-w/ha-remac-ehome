@@ -4,6 +4,22 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/) and
 [Semantic Versioning](https://semver.org/).
 
+## [1.5.0] - 2026-10-30
+
+### Added
+
+- **House discovery.** ``houseId`` is an internal number the official app never
+  shows, so the config flow now looks it up after login
+  (``POST /sl/home/house/list``) and uses the first house of the account. The
+  field stays visible for multi-house accounts.
+- The agent ``deviceId`` is generated per install instead of being baked in.
+
+### Changed
+
+- Nothing account specific ships with the code anymore: the previous defaults
+  (a real house id and device id) are gone, and every identifier in the
+  documentation is a placeholder. This release is the first public one.
+
 ## [1.4.3] - 2026-10-27
 
 ### Changed

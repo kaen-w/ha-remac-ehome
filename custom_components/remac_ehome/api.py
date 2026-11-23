@@ -294,6 +294,22 @@ class RemacApi:
         return self._public_key
 
     # -------------------------------------------------------------- endpoints
+    async def async_get_houses(self) -> list[dict[str, Any]]:
+        """Return the houses of this account.
+
+        Used to discover ``houseId``: it is an internal number that no user knows
+        by heart (the app hides it), so the config flow looks it up after login
+        instead of asking for it.
+        """
+        data = await self._request_authed("/sl/home/house/list", {})
+        if data.get("errorCode") != 0:
+            raise RemacApiError(
+                f"house list failed: {data.get('errorCode')} {data.get('msg')}"
+            )
+        payload = data.get("data") or {}
+        houses = payload.get("houses") if isinstance(payload, dict) else None
+        return houses if isinstance(houses, list) else []
+
     async def async_validate(self, house_id: str) -> list[dict[str, Any]]:
         """Validate credentials by fetching the device list."""
         if not self._token and self.uses_token_source:

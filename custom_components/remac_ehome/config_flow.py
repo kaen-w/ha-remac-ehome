@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import secrets
 from typing import Any
 
 import voluptuous as vol
@@ -107,6 +108,31 @@ async def validate_input(
     return await api.async_validate(house_id)
 
 
+async def _discover_house_id(
+    hass: HomeAssistant,
+    *,
+    mobile: str | None,
+    password: str | None,
+    device_id: str,
+    token_source: str | None = None,
+) -> str:
+    """Log in and return the first house id of the account."""
+    session = async_create_clientsession(hass)
+    api = RemacApi(
+        session,
+        device_id=device_id,
+        mobile=mobile,
+        password=password,
+        token_source=token_source,
+    )
+    houses = await api.async_get_houses()
+    for house in houses:
+        if house.get("houseId"):
+            _LOGGER.debug("discovered house %s (%s)", house["houseId"], house.get("houseName"))
+            return str(house["houseId"])
+    return ""
+
+
 class RemacConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle the initial setup and re-authentication."""
 
@@ -126,8 +152,10 @@ class RemacConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             mobile = user_input[CONF_MOBILE].strip()
             password = user_input.get(CONF_PASSWORD) or ""
-            house_id = user_input.get(CONF_HOUSE_ID, DEFAULT_HOUSE_ID).strip()
-            device_id = user_input.get(CONF_DEVICE_ID, DEFAULT_DEVICE_ID).strip()
+            house_id = (user_input.get(CONF_HOUSE_ID) or "").strip()
+            device_id = (
+                user_input.get(CONF_DEVICE_ID) or ""
+            ).strip() or DEFAULT_DEVICE_ID or secrets.token_hex(16)
             token_source = (user_input.get(CONF_TOKEN_SOURCE) or "").strip() or None
 
             if not token_source and not password:
@@ -136,6 +164,31 @@ class RemacConfigFlow(ConfigFlow, domain=DOMAIN):
                     data_schema=SETUP_SCHEMA,
                     errors={"base": "need_credentials"},
                 )
+
+            # ``houseId`` is an internal number the app never shows; discover it
+            # after logging in instead of making the user dig for it.
+            if not house_id:
+                try:
+                    house_id = await _discover_house_id(
+                        self.hass,
+                        mobile=mobile,
+                        password=password,
+                        device_id=device_id,
+                        token_source=token_source,
+                    )
+                except RemacAuthError:
+                    errors["base"] = "invalid_auth"
+                except RemacError:
+                    errors["base"] = "cannot_connect"
+                except Exception:  # noqa: BLE001
+                    _LOGGER.exception("unexpected error while discovering the house")
+                    errors["base"] = "unknown"
+                if not house_id:
+                    if not errors:
+                        errors["base"] = "no_devices"
+                    return self.async_show_form(
+                        step_id="user", data_schema=SETUP_SCHEMA, errors=errors
+                    )
 
             await self.async_set_unique_id(f"remac_{mobile}")
             self._abort_if_unique_id_configured()
