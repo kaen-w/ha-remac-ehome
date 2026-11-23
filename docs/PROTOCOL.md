@@ -128,6 +128,8 @@ POST /sl/cas/authorize/token
 }
 ```
 
+> 下面样例里的 token、手机号、nickname、userId 都是**占位符**，不是可用凭据。
+
 ```json
 {
   "data": {
@@ -157,7 +159,14 @@ POST /sl/cas/authorize/token
 
 ### 3.5 token 生命周期（重要）
 
-接口声称 `expires: 7200`，但实测：
+接口声称 `expires: 7200`（2 小时），实际情况分两种：
+
+| 场景 | 实测寿命 |
+|---|---|
+| App 不登录（只有本集成在轮询） | **用满 7200 秒**：日志里 `logged in as …` 正好每 2 小时出现一次 |
+| 期间有人打开官方 App | 立刻失效 —— 账号**单会话**，App 每登录一次就作废所有旧 token |
+
+早期这里写过「实际寿命 ≈ 15 分钟」，那是**互踢期间**测出来的假象：
 
 | 时间 | 事件 |
 |---|---|
@@ -165,7 +174,8 @@ POST /sl/cas/authorize/token
 | 00:49:55 | 该 token 仍可用（生成临时密码成功） |
 | 00:52:00 | 该 token 已失效（`3000`） |
 
-**实际寿命 ≈ 15 分钟**。
+那 15 分钟里官方 App 又登录过（详见 §9）。所以在「App 完全不用」的前提下，token 该活满
+2 小时；如果你看到它十几分钟就死，先检查是不是有人开了 App。
 
 刷新端点：
 
@@ -534,13 +544,13 @@ ssh <router> 'uci show dhcp | grep address'
 | token | 签发时间 | 测试结果（01:20:51） |
 |---|---|---|
 | `e63O5…` | 00:31:30 | ❌ 3000 authenticationError |
-| `OAd7rl…` | 00:34:17 | ❌ 3000 authenticationError |
+| `<token>` | 00:34:17 | ❌ 3000 authenticationError |
 | `OE4qUh…` | 01:00:36 | ❌ 3000 authenticationError |
 | `wDuDKj…` | 01:12:48 | ✅ 仍然有效 |
 
 **只有最新的 token 活着。**
 
-这不能用「到期」解释：`OAd7rl…` 连续成功用了 **26 分钟**，
+这不能用「到期」解释：同一枚 token 连续成功用了 **26 分钟**，
 而 `OE4qUh…` 只活了 20 分钟就死了。**唯一解释是每次登录都会作废之前的 token。**
 
 ### 结论
