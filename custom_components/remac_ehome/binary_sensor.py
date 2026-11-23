@@ -1,4 +1,5 @@
 """Binary sensors for the REMAC door lock."""
+
 from __future__ import annotations
 
 from homeassistant.components.binary_sensor import (
@@ -23,9 +24,7 @@ async def async_setup_entry(
 ) -> None:
     """Set up binary sensors."""
     coordinator: RemacCoordinator = entry.runtime_data["coordinator"]
-    async_add_entities(
-        [RemacOnlineSensor(coordinator), RemacLowBatterySensor(coordinator)]
-    )
+    async_add_entities([RemacOnlineSensor(coordinator), RemacLowBatterySensor(coordinator)])
 
 
 class RemacOnlineSensor(RemacEntity, BinarySensorEntity):

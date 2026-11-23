@@ -1,4 +1,5 @@
 """Constants for the REMAC (云邻 e家) integration."""
+
 from __future__ import annotations
 
 from typing import Final
@@ -9,9 +10,7 @@ BASE_URL: Final = "https://app.smartmideazy.com"
 APP_ID: Final = "1010"
 APP_SRC: Final = "23"
 APP_VERSION: Final = "3.4.0"
-USER_AGENT: Final = (
-    f"SmartLifeCommunity/{APP_VERSION} (iPhone; iOS 18.7.8; Scale/3.00)"
-)
+USER_AGENT: Final = f"SmartLifeCommunity/{APP_VERSION} (iPhone; iOS 18.7.8; Scale/3.00)"
 
 #: Default activity-log poll cadence in seconds. This drives unlock/door events.
 #: The cloud has no push channel available to third parties (the official app

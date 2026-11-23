@@ -11,6 +11,7 @@ event is turned into a short message and attributed to the entity it belongs to
 (the door lock or the temporary-passcode sensor), which is exactly what makes it
 show up under the device's Activity tab and in the recorder history.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -34,9 +35,7 @@ def async_describe_events(hass: HomeAssistant, async_describe_event: Any) -> Non
         # person, so the activity list is still diagnosable.
         if data.get("credential_confirmed") is False and record:
             text = f"{text}（{record}）"
-        entity_id = data.get("entity_id") or _entity_id(
-            hass, data.get("dev_code"), "lock"
-        )
+        entity_id = data.get("entity_id") or _entity_id(hass, data.get("dev_code"), "lock")
         return {
             "icon": _icon(data),
             "message": text,
@@ -49,9 +48,7 @@ def async_describe_events(hass: HomeAssistant, async_describe_event: Any) -> Non
         data = event.data
         minutes = int(data.get("expire_seconds") or 0) // 60
         holder = data.get("username") or "访客"
-        entity_id = data.get("entity_id") or _entity_id(
-            hass, data.get("dev_code"), "temp_passcode"
-        )
+        entity_id = data.get("entity_id") or _entity_id(hass, data.get("dev_code"), "temp_passcode")
         return {
             "icon": "mdi:key-plus",
             "message": f"生成临时密码（{holder}，{minutes} 分钟有效）",
@@ -65,9 +62,7 @@ def async_describe_events(hass: HomeAssistant, async_describe_event: Any) -> Non
         holder = data.get("username") or ""
         who = f"（{holder}）" if holder else ""
         what = "已被使用" if data.get("status") == "used" else "已过期"
-        entity_id = data.get("entity_id") or _entity_id(
-            hass, data.get("dev_code"), "temp_passcode"
-        )
+        entity_id = data.get("entity_id") or _entity_id(hass, data.get("dev_code"), "temp_passcode")
         return {
             "icon": "mdi:key-remove",
             "message": f"临时密码{who}{what}，已失效",
@@ -85,9 +80,7 @@ def _entity_id(hass: HomeAssistant, dev_code: Any, key: str) -> str | None:
     if not dev_code:
         return None
     domain = "lock" if key == "lock" else "sensor"
-    return er.async_get(hass).async_get_entity_id(
-        domain, DOMAIN, f"{dev_code}_{key}"
-    )
+    return er.async_get(hass).async_get_entity_id(domain, DOMAIN, f"{dev_code}_{key}")
 
 
 def _friendly_name(hass: HomeAssistant, entity_id: str | None) -> str | None:

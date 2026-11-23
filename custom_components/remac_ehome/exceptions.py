@@ -1,4 +1,5 @@
 """Exceptions for the REMAC integration."""
+
 from __future__ import annotations
 
 from homeassistant.exceptions import HomeAssistantError
@@ -12,7 +13,8 @@ class RemacAuthError(RemacError):
     """Authentication failed or the access token was rejected."""
 
 
-class RemacLoginDeferred(RemacAuthError):
+# The name is deliberate: this is a wait state, not an error.
+class RemacLoginDeferred(RemacAuthError):  # noqa: N818
     """A login is already scheduled and we are still inside the cool-down.
 
     This is NOT a failure: it must not escalate the backoff, otherwise a fast

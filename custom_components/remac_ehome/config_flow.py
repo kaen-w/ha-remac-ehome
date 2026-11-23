@@ -1,4 +1,5 @@
 """Config, reauth and options flows for REMAC (云邻 e家)."""
+
 from __future__ import annotations
 
 import logging
@@ -6,7 +7,6 @@ import secrets
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant.config_entries import (
     ConfigEntry,
     ConfigFlow,
@@ -36,10 +36,9 @@ from .exceptions import RemacAuthError, RemacError
 
 _LOGGER = logging.getLogger(__name__)
 
+
 def _interval_selector() -> vol.All:
-    return vol.All(
-        vol.Coerce(int), vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL)
-    )
+    return vol.All(vol.Coerce(int), vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL))
 
 
 SETUP_SCHEMA = vol.Schema(
@@ -48,9 +47,7 @@ SETUP_SCHEMA = vol.Schema(
         vol.Optional(CONF_PASSWORD): str,
         vol.Optional(CONF_HOUSE_ID, default=DEFAULT_HOUSE_ID): str,
         vol.Optional(CONF_DEVICE_ID, default=DEFAULT_DEVICE_ID): str,
-        vol.Optional(
-            CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL
-        ): _interval_selector(),
+        vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): _interval_selector(),
         vol.Optional(CONF_TOKEN_SOURCE): str,
     }
 )
@@ -63,6 +60,7 @@ TOKEN_SCHEMA = vol.Schema(
     }
 )
 
+
 def _options_schema(entry: ConfigEntry) -> vol.Schema:
     """Build the options form, pre-filled from what is stored right now.
 
@@ -74,9 +72,7 @@ def _options_schema(entry: ConfigEntry) -> vol.Schema:
         {
             vol.Optional(CONF_MOBILE, default=entry.data.get(CONF_MOBILE, "")): str,
             vol.Optional(CONF_PASSWORD): str,
-            vol.Optional(
-                CONF_TOKEN_SOURCE, default=entry.data.get(CONF_TOKEN_SOURCE) or ""
-            ): str,
+            vol.Optional(CONF_TOKEN_SOURCE, default=entry.data.get(CONF_TOKEN_SOURCE) or ""): str,
             vol.Optional(
                 CONF_SCAN_INTERVAL,
                 default=entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
@@ -144,9 +140,7 @@ class RemacConfigFlow(ConfigFlow, domain=DOMAIN):
         """Return the options flow."""
         return RemacOptionsFlow()
 
-    async def async_step_user(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Ask for the account credentials."""
         errors: dict[str, str] = {}
         if user_input is not None:
@@ -154,8 +148,10 @@ class RemacConfigFlow(ConfigFlow, domain=DOMAIN):
             password = user_input.get(CONF_PASSWORD) or ""
             house_id = (user_input.get(CONF_HOUSE_ID) or "").strip()
             device_id = (
-                user_input.get(CONF_DEVICE_ID) or ""
-            ).strip() or DEFAULT_DEVICE_ID or secrets.token_hex(16)
+                (user_input.get(CONF_DEVICE_ID) or "").strip()
+                or DEFAULT_DEVICE_ID
+                or secrets.token_hex(16)
+            )
             token_source = (user_input.get(CONF_TOKEN_SOURCE) or "").strip() or None
 
             if not token_source and not password:
@@ -180,7 +176,7 @@ class RemacConfigFlow(ConfigFlow, domain=DOMAIN):
                     errors["base"] = "invalid_auth"
                 except RemacError:
                     errors["base"] = "cannot_connect"
-                except Exception:  # noqa: BLE001
+                except Exception:
                     _LOGGER.exception("unexpected error while discovering the house")
                     errors["base"] = "unknown"
                 if not house_id:
@@ -207,7 +203,7 @@ class RemacConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = "invalid_auth"
             except RemacError:
                 errors["base"] = "cannot_connect"
-            except Exception:  # noqa: BLE001
+            except Exception:
                 _LOGGER.exception("unexpected error during setup")
                 errors["base"] = "unknown"
             else:
@@ -230,9 +226,7 @@ class RemacConfigFlow(ConfigFlow, domain=DOMAIN):
                         },
                     )
 
-        return self.async_show_form(
-            step_id="user", data_schema=SETUP_SCHEMA, errors=errors
-        )
+        return self.async_show_form(step_id="user", data_schema=SETUP_SCHEMA, errors=errors)
 
     async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
         """Start a re-authentication."""
@@ -286,9 +280,7 @@ class RemacConfigFlow(ConfigFlow, domain=DOMAIN):
 class RemacOptionsFlow(OptionsFlow):
     """Update the stored credentials without deleting the entry."""
 
-    async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Manage options."""
         errors: dict[str, str] = {}
         entry = self.config_entry

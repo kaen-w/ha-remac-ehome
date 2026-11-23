@@ -1,7 +1,8 @@
 """Sensors for the REMAC door lock."""
+
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -80,7 +81,7 @@ class RemacDoorStateSensor(RemacEntity, SensorEntity):
     _attr_translation_key = "door_state"
     _attr_icon = "mdi:door"
     _attr_device_class = SensorDeviceClass.ENUM
-    _attr_options = ["open", "closed"]
+    _attr_options: ClassVar[list[str]] = ["open", "closed"]
 
     def __init__(self, coordinator: RemacCoordinator) -> None:
         super().__init__(coordinator, "door_state")
@@ -139,9 +140,7 @@ class RemacTempPasscodeSensor(RemacEntity, SensorEntity, RestoreEntity):
     _attr_translation_key = "temp_passcode"
     _attr_icon = "mdi:key-variant"
 
-    def __init__(
-        self, hass: HomeAssistant, entry_id: str, coordinator: RemacCoordinator
-    ) -> None:
+    def __init__(self, hass: HomeAssistant, entry_id: str, coordinator: RemacCoordinator) -> None:
         super().__init__(coordinator, "temp_passcode")
         self._hass = hass
         self._entry_id = entry_id
@@ -204,7 +203,5 @@ class RemacTempPasscodeSensor(RemacEntity, SensorEntity, RestoreEntity):
                     "expired_at": attrs.get("expired_at"),
                 }
         self.async_on_remove(
-            async_dispatcher_connect(
-                self.hass, SIGNAL_TEMP_PASSCODE, self.async_write_ha_state
-            )
+            async_dispatcher_connect(self.hass, SIGNAL_TEMP_PASSCODE, self.async_write_ha_state)
         )

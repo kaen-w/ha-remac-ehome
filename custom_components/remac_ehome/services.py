@@ -1,4 +1,5 @@
 """Service implementations for the REMAC integration."""
+
 from __future__ import annotations
 
 import logging
@@ -47,9 +48,7 @@ async def async_generate_temp_password(
         "expires_at": expires_at.isoformat(),
         "generated_at": dt_util.now().isoformat(),
     }
-    _LOGGER.warning(
-        "temporary passcode created: %s (user=%s, ttl=%ss)", passcode, username, expire
-    )
+    _LOGGER.warning("temporary passcode created: %s (user=%s, ttl=%ss)", passcode, username, expire)
 
     persistent_notification.async_create(
         hass,

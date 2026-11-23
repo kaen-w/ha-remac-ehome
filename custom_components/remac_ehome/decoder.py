@@ -4,6 +4,7 @@ A record looks like ``{"data": "{\"openRecord\": 8448}", "createTime": ...}``.
 ``openRecord`` is a bitfield; the table below only lists values that have been
 confirmed against a real lock.
 """
+
 from __future__ import annotations
 
 import json
@@ -77,9 +78,7 @@ def normalise_method(type_name: str | None, default: str = "未知") -> str:
     return type_name
 
 
-def decode_record(
-    raw: Any, user_map: dict[str, Any] | None = None
-) -> dict[str, Any]:
+def decode_record(raw: Any, user_map: dict[str, Any] | None = None) -> dict[str, Any]:
     """Turn one record payload into a structured event dictionary."""
     payload = _as_mapping(raw)
     if not payload:
@@ -140,9 +139,7 @@ def describe_event(event: dict[str, Any]) -> str:
     return str(event.get("label") or event.get("field") or "动态")
 
 
-def latest_temp_unlock(
-    events: list[dict[str, Any]], since: str = ""
-) -> str | None:
+def latest_temp_unlock(events: list[dict[str, Any]], since: str = "") -> str | None:
     """Return when a temporary passcode was spent, or ``None`` if it was not.
 
     The M3 passcode is **single use**: the lock logs one ``0x2100`` unlock when
@@ -176,9 +173,8 @@ def _as_mapping(raw: Any) -> dict[str, Any]:
         return parsed if isinstance(parsed, dict) else {}
     return {}
 
-def _decode_open_record(
-    event: dict[str, Any], value: int, user_map: dict[str, Any] | None
-) -> None:
+
+def _decode_open_record(event: dict[str, Any], value: int, user_map: dict[str, Any] | None) -> None:
     """Fill in the unlock method, and the person only when the record says so.
 
     ``openRecord`` is ``(category << 8) | member``. Category ``0x02`` means "a

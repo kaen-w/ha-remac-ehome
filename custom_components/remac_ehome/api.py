@@ -3,6 +3,7 @@
 The endpoints, headers and payloads in this module were recovered by
 intercepting the official Android/iOS app. See ``docs/PROTOCOL.md``.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -106,7 +107,7 @@ class RemacApi:
                 if resp.status != 200:
                     return False
                 payload = await resp.json(content_type=None)
-        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as err:
+        except (TimeoutError, aiohttp.ClientError, ValueError) as err:
             _LOGGER.debug("token source unavailable: %s", err)
             return False
         token = (payload or {}).get("token")
@@ -156,7 +157,7 @@ class RemacApi:
                 timeout=REQUEST_TIMEOUT,
             ) as resp:
                 text = await resp.text()
-        except asyncio.TimeoutError as err:
+        except TimeoutError as err:
             raise RemacConnectionError(f"timeout calling {path}") from err
         except aiohttp.ClientError as err:
             raise RemacConnectionError(f"cannot reach the REMAC cloud: {err}") from err
@@ -166,9 +167,7 @@ class RemacApi:
         except ValueError as err:
             raise RemacApiError(f"non-JSON reply from {path}: {text[:120]}") from err
 
-    async def _request_authed(
-        self, path: str, payload: dict[str, Any]
-    ) -> dict[str, Any]:
+    async def _request_authed(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         """Request with automatic re-login on auth failure."""
         data = await self._request(path, payload)
         if data.get("errorCode") == ERR_AUTH:
@@ -203,9 +202,7 @@ class RemacApi:
                 except RemacAuthError as err:
                     # A real login attempt failed; slow down to protect the
                     # account, but only here.
-                    self._login_backoff = min(
-                        LOGIN_BACKOFF_MAX, self._login_backoff * 2
-                    )
+                    self._login_backoff = min(LOGIN_BACKOFF_MAX, self._login_backoff * 2)
                     self._next_login_at = time.monotonic() + self._login_backoff
                     _LOGGER.warning(
                         "login attempt failed (%s); next attempt in %ds",
@@ -222,19 +219,14 @@ class RemacApi:
     async def async_login(self) -> str:
         """Log in with the stored credentials and return a fresh token."""
         if self.uses_token_source:
-            raise RemacAuthError(
-                "this entry borrows its token from a source and must never log in"
-            )
+            raise RemacAuthError("this entry borrows its token from a source and must never log in")
         if not self.can_login:
-            raise RemacAuthError(
-                "no credentials stored; add the account phone number and password"
-            )
+            raise RemacAuthError("no credentials stored; add the account phone number and password")
         async with self._login_lock:
             now = time.monotonic()
             if now < self._next_login_at:
                 raise RemacLoginDeferred(
-                    "login already scheduled, waiting another "
-                    f"{int(self._next_login_at - now)}s"
+                    f"login already scheduled, waiting another {int(self._next_login_at - now)}s"
                 )
 
             public_key = await self._async_public_key()
@@ -250,17 +242,13 @@ class RemacApi:
                 },
                 "encrypt": True,
             }
-            data = await self._request(
-                "/sl/cas/authorize/token", payload, authenticated=False
-            )
+            data = await self._request("/sl/cas/authorize/token", payload, authenticated=False)
             code = data.get("errorCode")
             if code != 0:
                 # 3153 / 4003 mean "bad credentials" -> user must fix them.
                 # 3000 and friends are transient; treat as retryable.
                 if code in (3153, 4003):
-                    raise RemacCredentialsError(
-                        f"login rejected: {code} {data.get('msg')}"
-                    )
+                    raise RemacCredentialsError(f"login rejected: {code} {data.get('msg')}")
                 raise RemacAuthError(f"login rejected: {code} {data.get('msg')}")
             info = data.get("data") or {}
             token = info.get("accessToken")
@@ -303,9 +291,7 @@ class RemacApi:
         """
         data = await self._request_authed("/sl/home/house/list", {})
         if data.get("errorCode") != 0:
-            raise RemacApiError(
-                f"house list failed: {data.get('errorCode')} {data.get('msg')}"
-            )
+            raise RemacApiError(f"house list failed: {data.get('errorCode')} {data.get('msg')}")
         payload = data.get("data") or {}
         houses = payload.get("houses") if isinstance(payload, dict) else None
         return houses if isinstance(houses, list) else []
@@ -343,9 +329,7 @@ class RemacApi:
             },
         )
         if data.get("errorCode") != 0:
-            raise RemacApiError(
-                f"device list failed: {data.get('errorCode')} {data.get('msg')}"
-            )
+            raise RemacApiError(f"device list failed: {data.get('errorCode')} {data.get('msg')}")
         return data.get("data") or []
 
     async def async_get_status(self, dev_code: str) -> dict[str, Any]:
@@ -355,14 +339,10 @@ class RemacApi:
             {"devCode": dev_code, "requestOrigin": "plugin"},
         )
         if data.get("errorCode") != 0:
-            raise RemacApiError(
-                f"status get failed: {data.get('errorCode')} {data.get('msg')}"
-            )
+            raise RemacApiError(f"status get failed: {data.get('errorCode')} {data.get('msg')}")
         return data.get("data") or {}
 
-    async def async_get_logs(
-        self, dev_code: str, page_size: int = 20
-    ) -> list[dict[str, Any]]:
+    async def async_get_logs(self, dev_code: str, page_size: int = 20) -> list[dict[str, Any]]:
         """Return the latest activity records (newest first)."""
         data = await self._request_authed(
             "/sl/home/device/log/list",
@@ -373,9 +353,7 @@ class RemacApi:
             },
         )
         if data.get("errorCode") != 0:
-            raise RemacApiError(
-                f"log list failed: {data.get('errorCode')} {data.get('msg')}"
-            )
+            raise RemacApiError(f"log list failed: {data.get('errorCode')} {data.get('msg')}")
         rows = data.get("data")
         return rows if isinstance(rows, list) else []
 
@@ -411,9 +389,7 @@ class RemacApi:
             },
         )
         if data.get("errorCode") != 0:
-            raise RemacApiError(
-                f"temp password failed: {data.get('errorCode')} {data.get('msg')}"
-            )
+            raise RemacApiError(f"temp password failed: {data.get('errorCode')} {data.get('msg')}")
         return data.get("data") or {}
 
 

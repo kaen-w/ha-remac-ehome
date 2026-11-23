@@ -1,4 +1,5 @@
 """Data update coordinator for REMAC door locks."""
+
 from __future__ import annotations
 
 import logging
@@ -7,18 +8,19 @@ from typing import Any
 
 from homeassistant.components import persistent_notification
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
 from .api import RemacApi
 from .const import (
+    DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     EVENT_DOOR,
     EVENT_TEMP_RETIRED,
-    DEFAULT_SCAN_INTERVAL,
     LOG_SAFETY_EVERY,
     NOTIFICATION_TEMP_PASSCODE,
     SIGNAL_TEMP_PASSCODE,
@@ -125,9 +127,7 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     @property
     def lock_entity_id(self) -> str | None:
         """Entity id of the lock entity, for logbook attribution."""
-        return er.async_get(self.hass).async_get_entity_id(
-            "lock", DOMAIN, f"{self.dev_code}_lock"
-        )
+        return er.async_get(self.hass).async_get_entity_id("lock", DOMAIN, f"{self.dev_code}_lock")
 
     def temp_passcode_entity_id(self) -> str | None:
         """Entity id of the temporary-passcode sensor."""
@@ -138,9 +138,7 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     @property
     def device_id(self) -> str | None:
         """Device-registry id of the lock, for the device Activity tab."""
-        entry = dr.async_get(self.hass).async_get_device(
-            identifiers={(DOMAIN, self.dev_code)}
-        )
+        entry = dr.async_get(self.hass).async_get_device(identifiers={(DOMAIN, self.dev_code)})
         return entry.id if entry else None
 
     def event_targets(self, entity_id: str | None) -> dict[str, Any]:
@@ -184,12 +182,7 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # ``name`` stays None when the app has not named this credential:
             # falling back to the type name would make "the unnamed second
             # fingerprint" look exactly like a named one.
-            name = (
-                user.get("userRole")
-                or user.get("user_role")
-                or user.get("userName")
-                or None
-            )
+            name = user.get("userRole") or user.get("user_role") or user.get("userName") or None
             type_name = user.get("typeName") or user.get("type_name") or ""
             mapping.setdefault(
                 str(user_no),
@@ -261,9 +254,7 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     @staticmethod
     def _newest_first(logs: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Sort records newest first — ``createTime`` is ``YYYY-MM-DD HH:MM:SS``."""
-        return sorted(
-            logs, key=lambda row: str(row.get("createTime") or ""), reverse=True
-        )
+        return sorted(logs, key=lambda row: str(row.get("createTime") or ""), reverse=True)
 
     def _retire_temp_passcode(self) -> None:
         """Retire a temporary passcode once it was spent or has expired.
@@ -280,9 +271,7 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if not record or record.get("status") not in (None, "active"):
             return
 
-        used_at = latest_temp_unlock(
-            self.recent_events(), _local_stamp(record.get("generated_at"))
-        )
+        used_at = latest_temp_unlock(self.recent_events(), _local_stamp(record.get("generated_at")))
         status = "used" if used_at else None
         if status is None and _is_expired(record.get("expires_at")):
             status = "expired"
@@ -299,9 +288,7 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             record.get("username"),
             status,
         )
-        persistent_notification.async_dismiss(
-            self.hass, notification_id=NOTIFICATION_TEMP_PASSCODE
-        )
+        persistent_notification.async_dismiss(self.hass, notification_id=NOTIFICATION_TEMP_PASSCODE)
         async_dispatcher_send(self.hass, SIGNAL_TEMP_PASSCODE)
         self.hass.bus.async_fire(
             EVENT_TEMP_RETIRED,
@@ -330,7 +317,7 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     self.lock_users = await self.api.async_get_lock_users(self.dev_code)
                 except RemacAuthError:
                     raise
-                except Exception as err:  # noqa: BLE001 - never break polling
+                except Exception as err:
                     _LOGGER.debug("lock user refresh failed: %s", err)
 
             # The activity endpoint is both the flaky one (occasionally answers
@@ -338,12 +325,7 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # the lock actually reported something — plus a slow safety poll in
             # case a stamp is ever missed. Latency is unchanged: the status poll
             # that notices the change happens in the same cycle.
-            if (
-                changed
-                or self._log_pending
-                or not self._logs
-                or self._tick % LOG_SAFETY_EVERY == 0
-            ):
+            if changed or self._log_pending or not self._logs or self._tick % LOG_SAFETY_EVERY == 0:
                 self._log_pending = True
                 try:
                     self._logs = self._newest_first(
@@ -351,7 +333,7 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     )
                 except RemacAuthError:
                     raise
-                except Exception as err:  # noqa: BLE001
+                except Exception as err:
                     # Keep retrying every cycle until it succeeds, so an event
                     # is never swallowed by a single flaky answer.
                     if not self._logs:
@@ -359,8 +341,7 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     self._log_failures += 1
                     if self._log_failures in (1, 10, 100):
                         _LOGGER.warning(
-                            "activity log fetch failed %d time(s), keeping %d cached "
-                            "record(s): %s",
+                            "activity log fetch failed %d time(s), keeping %d cached record(s): %s",
                             self._log_failures,
                             len(self._logs),
                             err,
@@ -399,7 +380,7 @@ class RemacCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise UpdateFailed(str(err)) from err
         except RemacConnectionError as err:
             raise UpdateFailed(str(err)) from err
-        except Exception as err:  # noqa: BLE001
+        except Exception as err:
             raise UpdateFailed(f"unexpected error: {err}") from err
         self._deferred_polls = 0
         return {"status": self._status, "logs": self._logs}

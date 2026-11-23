@@ -1,5 +1,8 @@
 """Number helper: lifetime of the next temporary passcode."""
+
 from __future__ import annotations
+
+from contextlib import suppress
 
 from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.const import UnitOfTime
@@ -57,12 +60,10 @@ class RemacTempDuration(RemacEntity, NumberEntity, RestoreEntity):
         await super().async_added_to_hass()
         last_state = await self.async_get_last_state()
         if last_state is not None:
-            try:
+            with suppress(TypeError, ValueError):
                 self._attr_native_value = min(
                     MAX_MINUTES, max(MIN_MINUTES, float(last_state.state))
                 )
-            except (TypeError, ValueError):
-                pass
         self._store()["minutes"] = int(self._attr_native_value or DEFAULT_MINUTES)
 
     async def async_set_native_value(self, value: float) -> None:

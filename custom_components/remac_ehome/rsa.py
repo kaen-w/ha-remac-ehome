@@ -7,12 +7,13 @@ login password as ``base64(RSA_PKCS1v15(password))``.
 Kept dependency-free so the integration works on a stock Home Assistant
 installation without extra ``requirements``.
 """
+
 from __future__ import annotations
 
 import base64
 import os
 
-__all__ = ["parse_public_key", "encrypt"]
+__all__ = ["encrypt", "parse_public_key"]
 
 
 def _read_tlv(buf: bytes, idx: int) -> tuple[int, bytes, int]:
@@ -23,18 +24,18 @@ def _read_tlv(buf: bytes, idx: int) -> tuple[int, bytes, int]:
     idx += 1
     if length & 0x80:
         nbytes = length & 0x7F
-        length = int.from_bytes(buf[idx:idx + nbytes], "big")
+        length = int.from_bytes(buf[idx : idx + nbytes], "big")
         idx += nbytes
-    return tag, buf[idx:idx + length], idx + length
+    return tag, buf[idx : idx + length], idx + length
 
 
 def parse_public_key(public_key_b64: str) -> tuple[int, int]:
     """Return ``(modulus, exponent)`` from a base64 SubjectPublicKeyInfo."""
     der = base64.b64decode(public_key_b64)
-    _, outer, _ = _read_tlv(der, 0)                 # SEQUENCE
-    _, _, after_alg = _read_tlv(outer, 0)           # AlgorithmIdentifier
+    _, outer, _ = _read_tlv(der, 0)  # SEQUENCE
+    _, _, after_alg = _read_tlv(outer, 0)  # AlgorithmIdentifier
     _, bit_string, _ = _read_tlv(outer, after_alg)  # BIT STRING
-    _, rsa_key, _ = _read_tlv(bit_string[1:], 0)    # skip unused-bits octet
+    _, rsa_key, _ = _read_tlv(bit_string[1:], 0)  # skip unused-bits octet
     _, modulus_bytes, offset = _read_tlv(rsa_key, 0)
     _, exponent_bytes, _ = _read_tlv(rsa_key, offset)
     return int.from_bytes(modulus_bytes, "big"), int.from_bytes(exponent_bytes, "big")

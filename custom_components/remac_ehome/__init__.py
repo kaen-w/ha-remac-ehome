@@ -1,11 +1,11 @@
 """The REMAC (云邻 e家) integration."""
+
 from __future__ import annotations
 
 import logging
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -16,15 +16,15 @@ from homeassistant.helpers.typing import ConfigType
 from .api import RemacApi
 from .const import (
     CONF_DEVICE_ID,
-    CONF_SCAN_INTERVAL,
-    CONF_TOKEN_SOURCE,
-    DEFAULT_SCAN_INTERVAL,
     CONF_HOUSE_ID,
     CONF_MOBILE,
     CONF_PASSWORD,
+    CONF_SCAN_INTERVAL,
     CONF_TOKEN,
+    CONF_TOKEN_SOURCE,
     DEFAULT_DEVICE_ID,
     DEFAULT_HOUSE_ID,
+    DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     SERVICE_TEMP_PASSWORD,
 )
@@ -49,9 +49,7 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 TEMP_PASSWORD_SCHEMA = vol.Schema(
     {
         vol.Required("username"): cv.string,
-        vol.Optional("expire", default=1800): vol.All(
-            cv.positive_int, vol.Range(min=60, max=1800)
-        ),
+        vol.Optional("expire", default=1800): vol.All(cv.positive_int, vol.Range(min=60, max=1800)),
     }
 )
 

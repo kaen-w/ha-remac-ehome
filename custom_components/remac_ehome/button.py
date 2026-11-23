@@ -1,4 +1,5 @@
 """Button that generates a temporary door passcode."""
+
 from __future__ import annotations
 
 from homeassistant.components.button import ButtonEntity

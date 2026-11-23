@@ -1,4 +1,5 @@
 """Text helper: who the temporary passcode is for."""
+
 from __future__ import annotations
 
 from homeassistant.components.text import TextEntity, TextMode
